@@ -56,7 +56,7 @@ class Chef
         Chef::Log.info("Removing pre-existing version.")
         Chef::Mixin::Command.run_command(:command => "rm -r #{cookbook_path}", :cwd => vendor_path) if File.directory?(cookbook_path)
         Chef::Log.info("Uncompressing #{name_args[0]} version #{download.version}.")
-        Chef::Mixin::Command.run_command(:command => "tar zxvf #{upstream_file}", :cwd => vendor_path)
+        Chef::Mixin::Command.run_command(:command => "#{Chef::Config[:gnutar]} zxvf #{upstream_file}", :cwd => vendor_path)
         Chef::Mixin::Command.run_command(:command => "rm #{upstream_file}", :cwd => vendor_path)
         Chef::Log.info("Adding changes.")
         Chef::Mixin::Command.run_command(:command => "git add #{name_args[0]}", :cwd => vendor_path)

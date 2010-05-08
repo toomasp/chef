@@ -140,6 +140,7 @@ class Chef
     rest_timeout 300
     run_command_stderr_timeout 120
     run_command_stdout_timeout 120
+    gnutar "tar"
     search_url "http://localhost:4000"
     solo  false
     splay nil

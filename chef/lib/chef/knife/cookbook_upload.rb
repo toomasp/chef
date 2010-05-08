@@ -117,7 +117,7 @@ class Chef
 
         Chef::Log.info("Creating tarball at #{tarball_name}")
         Chef::Mixin::Command.run_command(
-          :command => "tar -C #{tmp_cookbook_dir} -cvzf #{tarball_name} ./#{cookbook_name}"
+          :command => "#{Chef::Config[:gnutar]} -C #{tmp_cookbook_dir} -cvzf #{tarball_name} ./#{cookbook_name}"
         )
 
         begin
