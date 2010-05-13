@@ -126,5 +126,10 @@ describe Chef::Config do
     it "Chef::Config[:ssl_ca_file] defaults to nil" do
       Chef::Config[:ssl_ca_file].should be_nil
     end
+
+    it "Chef::Config[:gnutar] should not be nil" do
+      Chef::Config[:gnutar].should_not be_nil
+    end
+
   end
 end

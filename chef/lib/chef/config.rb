@@ -140,7 +140,11 @@ class Chef
     rest_timeout 300
     run_command_stderr_timeout 120
     run_command_stdout_timeout 120
-    gnutar "tar"
+    if ::File.exist?("/usr/sfw/bin/gtar")
+      gnutar "/usr/sfwin/bin/gtar"
+    else
+      gnutar "tar"
+    end
     search_url "http://localhost:4000"
     solo  false
     splay nil
