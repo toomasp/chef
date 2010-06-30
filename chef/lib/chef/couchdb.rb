@@ -97,6 +97,7 @@ class Chef
       true
     end
 
+    # Save the object to Couch. Add to index if the object supports it.
     def store(obj_type, name, object)
       validate(
         {
@@ -109,12 +110,14 @@ class Chef
         }
       )
       rows = get_view("id_map", "name_to_id", :key => [ obj_type, name ])["rows"]
-      uuid    = rows.empty? ? UUIDTools::UUID.random_create.to_s : rows.first.fetch("id")
-      
+      uuid = rows.empty? ? UUIDTools::UUID.random_create.to_s : rows.first.fetch("id")
+     
       db_put_response = @rest.put_rest("#{couchdb_database}/#{uuid}", object)
-      
-      Chef::Log.info("Sending #{obj_type}(#{uuid}) to the index queue for addition.")
-      object.add_to_index(:database => couchdb_database, :id => uuid, :type => obj_type)
+
+      if object.respond_to?(:add_to_index)
+        Chef::Log.info("Sending #{obj_type}(#{uuid}) to the index queue for addition.")
+        object.add_to_index(:database => couchdb_database, :id => uuid, :type => obj_type)
+      end
       
       db_put_response
     end
@@ -157,9 +160,11 @@ class Chef
       end
       response = @rest.delete_rest("#{couchdb_database}/#{uuid}?rev=#{rev}")
       response.couchdb = self if response.respond_to?(:couchdb=)
-      Chef::Log.info("Sending #{obj_type}(#{uuid}) to the index queue for deletion..")
       
-      object.delete_from_index(:database => couchdb_database, :id => uuid, :type => obj_type)
+      if object.respond_to?(:delete_from_index)
+        Chef::Log.info("Sending #{obj_type}(#{uuid}) to the index queue for deletion..")
+        object.delete_from_index(:database => couchdb_database, :id => uuid, :type => obj_type)
+      end
 
       response
     end
@@ -217,8 +222,7 @@ class Chef
     def get_view(design, view, options={})
       view_string = view_uri(design, view)
       view_string << "?" if options.length != 0
-      first = true;
-      options.each { |k,v| view_string << "#{first ? '' : '&'}#{k}=#{URI.escape(v.to_json)}"; first = false }
+      view_string << options.map { |k,v| "#{k}=#{URI.escape(v.to_json)}"}.join('&')
       @rest.get_rest(view_string)
     end
 

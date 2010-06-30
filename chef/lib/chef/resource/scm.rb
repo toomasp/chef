@@ -22,9 +22,9 @@ require 'chef/resource'
 class Chef
   class Resource
     class Scm < Chef::Resource
-
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      
+      def initialize(name, run_context=nil)
+        super
         @destination = name
         @resource_name = :scm
         @enable_submodules = false
@@ -92,6 +92,7 @@ class Chef
       end
 
       def svn_arguments(arg=nil)
+        @svn_arguments, arg = nil, nil if arg == false
         set_or_return(
           :svn_arguments,
           arg,
@@ -100,8 +101,9 @@ class Chef
       end
 
       def svn_info_args(arg=nil)
+        @svn_info_args, arg = nil, nil if arg == false
         set_or_return(
-          :svn_arguments,
+          :svn_info_args,
           arg,
           :kind_of => String)
       end

@@ -21,9 +21,9 @@ require 'chef/resource'
 class Chef
   class Resource
     class User < Chef::Resource
-        
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      
+      def initialize(name, run_context=nil)
+        super
         @resource_name = :user
         @username = name
         @comment = nil
@@ -32,6 +32,9 @@ class Chef
         @home = nil
         @shell = nil
         @password = nil
+        @system = false
+        @manage_home = false
+        @non_unique = false
         @action = :create
         @supports = { 
           :manage_home => false,
@@ -95,6 +98,30 @@ class Chef
           :password,
           arg,
           :kind_of => [ String ]
+        )
+      end
+
+      def system(arg=nil)
+        set_or_return(
+          :system,
+          arg,
+          :kind_of => [ TrueClass, FalseClass ]
+        )
+      end
+
+      def manage_home(arg=nil)
+        set_or_return(
+          :manage_home,
+          arg,
+          :kind_of => [ TrueClass, FalseClass ]
+        )
+      end
+
+      def non_unique(arg=nil)
+        set_or_return(
+          :non_unique,
+          arg,
+          :kind_of => [ TrueClass, FalseClass ]
         )
       end
       

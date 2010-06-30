@@ -46,7 +46,7 @@ class Chef
       load_commands
       @sub_classes.keys.sort.each do |snake_case|
         klass_instance = build_sub_class(snake_case) 
-        klass_instance.parse_options
+        klass_instance.parse_options([])
         puts klass_instance.opt_parser
         puts
       end
@@ -98,6 +98,14 @@ class Chef
       klass_instance
     end
 
+    def parse_options(args)
+      super
+    rescue OptionParser::InvalidOption => e
+      puts "Error: " + e.to_s
+      show_usage
+      exit(1)
+    end
+
     def ask_question(question, opts={})
       question = question + "[#{opts[:default]}] " if opts[:default]
         
@@ -112,8 +120,28 @@ class Chef
     end
 
     def configure_chef
-      if !config[:config_file].nil? && File.exists?(config[:config_file]) && File.readable?(config[:config_file])
-        Chef::Config.from_file(config[:config_file]) 
+      unless config[:config_file]
+        full_path = Dir.pwd.split(File::SEPARATOR)
+        (full_path.length - 1).downto(0) do |i|
+          config_file_to_check = File.join([ full_path[0..i], ".chef", "knife.rb" ].flatten)
+          if File.exists?(config_file_to_check)
+            config[:config_file] = config_file_to_check 
+            break
+          end
+        end
+        # If we haven't set a config yet and $HOME is set, and the home
+        # knife.rb exists, use it:
+        if (!config[:config_file]) && ENV['HOME'] && File.exist?(File.join(ENV['HOME'], '.chef', 'knife.rb'))
+          config[:config_file] = File.join(ENV['HOME'], '.chef', 'knife.rb')
+        end
+      end
+
+      # Don't try to load a knife.rb if it doesn't exist.
+      if config[:config_file]
+        Chef::Config.from_file(config[:config_file])
+      else
+        # ...but do log a message if no config was found.
+        Chef::Log.info("No knife configuration file found")
       end
 
       Chef::Config[:log_level] = config[:log_level] if config[:log_level]
@@ -124,6 +152,8 @@ class Chef
       Mixlib::Log::Formatter.show_time = false
       Chef::Log.init(Chef::Config[:log_location])
       Chef::Log.level(Chef::Config[:log_level])
+
+      Chef::Log.debug("Using configuration from #{config[:config_file]}")
 
       if Chef::Config[:node_name].nil?
         raise ArgumentError, "No user specified, pass via -u or specifiy 'node_name' in #{config[:config_file] ? config[:config_file] : "~/.chef/knife.rb"}"
@@ -137,17 +167,17 @@ class Chef
     def output(data)
       case config[:format]
       when "json", nil
-        puts JSON.pretty_generate(data)
+        stdout.puts JSON.pretty_generate(data)
       when "yaml"
         require 'yaml'
-        puts YAML::dump(data)
+        stdout.puts YAML::dump(data)
       when "text"
         # If you were looking for some attribute and there is only one match
         # just dump the attribute value
         if data.length == 1 and config[:attribute]
-          puts data.values[0]
+          stdout.puts data.values[0]
         else
-          pp data
+          PP.pp(data, stdout)
         end
       else
         raise ArgumentError, "Unknown output format #{config[:format]}"
@@ -165,7 +195,9 @@ class Chef
         config[:attribute].split(".").each do |attr|
           if data.respond_to?(:[])
             data = data[attr]
-          else
+          elsif data.nil?
+            nil # don't get no method error on nil
+          else data.respond_to?(attr.to_sym)
             data = data.send(attr.to_sym)
           end
         end
@@ -202,10 +234,11 @@ class Chef
       parse_output ? JSON.parse(output) : output
     end
 
-    def confirm(question)
+    def confirm(question, append_instructions=true)
       return true if config[:yes]
 
-      print "#{question}? (Y/N) "
+      print question
+      print "? (Y/N) " if append_instructions
       answer = stdin.readline
       answer.chomp!
       case answer
@@ -221,9 +254,21 @@ class Chef
       end
     end
 
-    def load_from_file(klass, from_file) 
-      from_file = @name_args[0]
-      relative_file = File.expand_path(File.join(Dir.pwd, 'roles', from_file))
+    def show_usage
+      stdout.puts("USAGE: " + self.opt_parser.to_s)
+    end
+
+    def load_from_file(klass, from_file, bag=nil) 
+      relative_path = ""
+      if klass == Chef::Role
+        relative_path = "roles"
+      elsif klass == Chef::Node
+        relative_path = "nodes"
+      elsif klass == Chef::DataBagItem
+        relative_path = "data_bags/#{bag}"
+      end
+
+      relative_file = File.expand_path(File.join(Dir.pwd, relative_path, from_file))
       filename = nil
 
       if file_exists_and_is_readable?(from_file)

@@ -129,26 +129,42 @@ class Chef
           },
           :mswin => {
             :default => {
-              :service => Chef::Provider::Service::Windows
+              :env =>  Chef::Provider::Env::Windows,
+              :service => Chef::Provider::Service::Windows,
+              :user => Chef::Provider::User::Windows,
+              :group => Chef::Provider::Group::Windows,
+              :mount => Chef::Provider::Mount::Windows
             }
           },
           :mingw32 => {
             :default => {
-              :service => Chef::Provider::Service::Windows
+              :env =>  Chef::Provider::Env::Windows,
+              :service => Chef::Provider::Service::Windows,
+              :user => Chef::Provider::User::Windows,
+              :group => Chef::Provider::Group::Windows,
+              :mount => Chef::Provider::Mount::Windows
             }
           },
           :windows => {
             :default => {
-              :service => Chef::Provider::Service::Windows
+              :env =>  Chef::Provider::Env::Windows,
+              :service => Chef::Provider::Service::Windows,
+              :user => Chef::Provider::User::Windows,
+              :group => Chef::Provider::Group::Windows,
+              :mount => Chef::Provider::Mount::Windows
             }
           },
           :solaris  => {},
+          :solaris2 => {
+            :default => {
+              :service => Chef::Provider::Service::Solaris
+            }
+          },
           :default  => {
             :file => Chef::Provider::File,
             :directory => Chef::Provider::Directory,
             :link => Chef::Provider::Link,
             :template => Chef::Provider::Template,
-            :remote_file => Chef::Provider::RemoteFile,
             :remote_directory => Chef::Provider::RemoteDirectory,
             :execute => Chef::Provider::Execute,
             :mount => Chef::Provider::Mount::Mount,
@@ -224,7 +240,14 @@ class Chef
         return platform, version
       end
 
+      def provider_for_resource(resource)
+        node = resource.run_context && resource.run_context.node
+        raise ArgumentError, "Cannot find the provider for a resource with no run context set" unless node
+        find_provider_for_node(node, resource).new(resource, resource.run_context)
+      end
+
       def provider_for_node(node, resource_type)
+        raise NotImplementedError, "#{self.class.name} no longer supports #provider_for_node"
         find_provider_for_node(node, resource_type).new(node, resource_type)
       end
 

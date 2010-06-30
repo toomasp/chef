@@ -21,9 +21,9 @@ require 'chef/resource'
 class Chef
   class Resource
     class File < Chef::Resource
-
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      
+      def initialize(name, run_context=nil)
+        super
         @resource_name = :file
         @path = name
         @backup = 5
@@ -59,7 +59,7 @@ class Chef
         set_or_return(
           :group,
           arg,
-          :regex => [ /^([a-z]|[A-Z]|[0-9]|_|-)+$/, /^\d+$/ ]
+          :regex => Chef::Config[:group_valid_regex]
         )
       end
 
@@ -75,7 +75,7 @@ class Chef
         set_or_return(
           :owner,
           arg,
-          :regex => [ /^([a-z]|[A-Z]|[0-9]|_|-)+$/, /^\d+$/ ]
+          :regex => Chef::Config[:user_valid_regex]
         )
       end
 

@@ -42,6 +42,9 @@ class Chef
       newkey
     end
 
+    def self.inspect
+      configuration.inspect
+    end
 
     # Override the config dispatch to set the value of multiple server options simultaneously
     # 
@@ -103,13 +106,15 @@ class Chef
     client_registration_retries 5
     cookbook_path [ "/var/chef/cookbooks", "/var/chef/site-cookbooks" ]
     cookbook_tarball_path "/var/chef/cookbook-tarballs"
+    sandbox_path "/var/chef/sandboxes"
+    checksum_path "/var/chef/checksums"
     couchdb_database "chef"
     couchdb_url "http://localhost:5984"
     couchdb_version nil
     delay 0
     executable_path ENV['PATH'] ? ENV['PATH'].split(File::PATH_SEPARATOR) : []
     file_cache_path "/var/chef/cache"
-    file_backup_path nil
+    file_backup_path "/var/chef/backup"
     group nil
     http_retry_count 5
     http_retry_delay 5
@@ -141,7 +146,7 @@ class Chef
     run_command_stderr_timeout 120
     run_command_stdout_timeout 120
     if ::File.exist?("/usr/sfw/bin/gtar")
-      gnutar "/usr/sfwin/bin/gtar"
+      gnutar "/usr/sfw/bin/gtar"
     else
       gnutar "tar"
     end
@@ -196,6 +201,12 @@ class Chef
     signing_ca_domain "opensource.opscode.com"
     signing_ca_email "opensource-cert@opscode.com"
 
+    # Report Handlers
+    report_handlers []
+
+    # Exception Handlers
+    exception_handlers []
+
     # Checksum Cache
     # Uses Moneta on the back-end
     cache_type "BasicFile"
@@ -203,5 +214,10 @@ class Chef
 
     # Arbitrary knife configuration data
     knife Hash.new
+
+    # Those lists of regular expressions define what chef considers a
+    # valid user and group name
+    user_valid_regex [ /^([-a-zA-Z0-9_.]+)$/, /^\d+$/ ]
+    group_valid_regex [ /^([-a-zA-Z0-9_.]+)$/, /^\d+$/ ]
   end
 end

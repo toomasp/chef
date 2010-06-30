@@ -17,15 +17,13 @@
 # limitations under the License.
 #
 
-gems = %w[chef chef-server-api chef-server-webui chef-server chef-solr]
+gems = %w[chef chef-server-api chef-server-webui chef-solr chef-server]
 require 'rubygems'
 
 desc "Build the chef gems"
 task :gem do
-  build_commands = Hash.new("rake package")
-  build_commands['chef-solr'] = 'rake build'
   gems.each do |dir|
-      Dir.chdir(dir) { sh build_commands[dir] }
+      Dir.chdir(dir) { sh "rake gem" }
   end
 end
 
@@ -129,10 +127,10 @@ def start_chef_server(type="normal")
     case type
     when "normal"
       puts "Starting chef server for development with './chef-server/bin/chef-server -a thin -l debug -N'"
-      exec("./chef-server/bin/chef-server -a thin -l debug -N")
+      exec("./chef-server-api/bin/chef-server -a thin -l debug -N")
     when "features"
       puts "Starting chef server for features with #{["./chef-server/bin/chef-server -a thin -C #{File.join(File.dirname(__FILE__), "features", "data", "config", "server.rb")} -l debug -N"].join(' ')}"
-      exec("./chef-server/bin/chef-server -a thin -C #{File.join(File.dirname(__FILE__), "features", "data", "config", "server.rb")} -l debug -N")
+      exec("./chef-server-api/bin/chef-server -a thin -C #{File.join(File.dirname(__FILE__), "features", "data", "config", "server.rb")} -l debug -N")
     end
   end
 end
@@ -147,10 +145,10 @@ def start_chef_webui(type="normal")
     case type
     when "normal"
       puts "Starting chef webui for development with './chef-server/bin/chef-server-webui -a thin -l debug -N'"
-      exec("./chef-server/bin/chef-server-webui -a thin -l debug -N")
+      exec("./chef-server-webui/bin/chef-server-webui -a thin -l debug -N")
     when "features"
       puts "Starting chef server webui for features with #{["./chef-server/bin/chef-server-webui -a thin -C #{File.join(File.dirname(__FILE__), "features", "data", "config", "server.rb")} -l debug -N"].join(' ')}"
-      exec("./chef-server/bin/chef-server-webui -a thin -C #{File.join(File.dirname(__FILE__), "features", "data", "config", "server.rb")} -l debug -N")
+      exec("./chef-server-webui/bin/chef-server-webui -a thin -C #{File.join(File.dirname(__FILE__), "features", "data", "config", "server.rb")} -l debug -N")
     end
   end
 end
@@ -423,6 +421,10 @@ begin
     desc "Run cucumber tests for the recipe language"
     Cucumber::Rake::Task.new(:language) do |t|
       t.profile = "language"
+    end
+
+    Cucumber::Rake::Task.new(:attribute_settings) do |t|
+      t.profile = "attribute_settings"
     end
 
     desc "Run cucumber tests for searching in recipes"

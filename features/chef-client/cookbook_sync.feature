@@ -17,7 +17,7 @@ Feature: Synchronize cookbooks from the server
      When I run the chef-client with '-l info'
      Then the run should exit '0'
       And 'stdout' should have 'INFO: Storing updated cookbooks/synchronize_deps/recipes/default.rb in the cache.'
-      And 'stdout' should have 'INFO: Storing updated cookbooks/synchronize/recipes/default.rb in the cache.'
+      And 'stdout' should have 'INFO: Storing updated cookbooks/synchronize_deps/recipes/default.rb in the cache.'
 
   Scenario: Removes files from the cache that are no longer needed 
     Given a validated node
@@ -28,7 +28,7 @@ Feature: Synchronize cookbooks from the server
     Given we have an empty file named 'cookbooks/synchronize_deps/recipes/woot.rb' in the client cache
      When I run the chef-client with '-l info'
      Then the run should exit '0'
-      And 'stdout' should have 'INFO: Removing cookbooks/synchronize_deps/recipes/woot.rb from the cache; it is no longer on the server.'
+      And 'stdout' should have 'INFO: Removing cookbooks/synchronize_deps/recipes/woot.rb from the cache'
 
   Scenario: Remove cookbooks that are no longer needed 
     Given a validated node
@@ -40,4 +40,13 @@ Feature: Synchronize cookbooks from the server
      When I run the chef-client with '-l info'
      Then the run should exit '0'
       And 'stdout' should have 'INFO: Removing cookbooks/synchronize_deps/recipes/default.rb from the cache; its cookbook is no longer needed on this client.'
+
+  Scenario: Try to download a cookbook that depends on a non-existent cookbook
+    Given I am an administrator
+      And I fully upload a sandboxed cookbook named 'testcookbook_wrong_metadata' versioned '0.1.0' with 'testcookbook_wrong_metadata'
+      And a validated node
+      And it includes the recipe 'testcookbook_wrong_metadata'
+     When I run the chef-client with '-l debug'
+     Then the run should exit '1'
+      And 'stdout' should have '412 Precondition Failed: cookbook testcookbook_wrong_metadata depends on cookbook no_such_cookbook, but no_such_cookbook does not exist'
 

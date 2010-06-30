@@ -22,8 +22,10 @@ class Chef
   class Resource
     class Subversion < Chef::Resource::Scm
       
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      def initialize(name, run_context=nil)
+        super
+        @svn_arguments = '--no-auth-cache'
+        @svn_info_args = '--no-auth-cache'
         @resource_name = :subversion
         @provider = Chef::Provider::Subversion
         allowed_actions << :force_export

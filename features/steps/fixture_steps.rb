@@ -28,6 +28,27 @@ Before do
         c
       end
     },
+    'sandbox' => {
+      # The filename part of these 'checksums' hashes isn't used by the API (the 
+      # value side of that hash is ignored), and is here for documentation's sake.
+      'sandbox1' => {
+        :checksums => {
+          Chef::CookbookVersion.checksum_cookbook_file(File.join(datadir, "cookbooks_not_uploaded_at_feature_start", "test_cookbook", "recipes", "default.rb")) => nil
+        },
+      },
+      'sandbox2' => {
+        :checksums => {
+          Chef::CookbookVersion.checksum_cookbook_file(File.join(datadir, "cookbooks_not_uploaded_at_feature_start", "test_cookbook", "attributes", "attr1.rb")) => nil,
+          Chef::CookbookVersion.checksum_cookbook_file(File.join(datadir, "cookbooks_not_uploaded_at_feature_start", "test_cookbook", "attributes", "attr2.rb")) => nil
+        },
+      },
+    },
+    'sandbox_file' => {
+      "sandbox1_file1" => File.join(datadir, "cookbooks_not_uploaded_at_feature_start", "test_cookbook", "recipes", "default.rb"),
+
+      "sandbox2_file1" => File.join(datadir, "cookbooks_not_uploaded_at_feature_start", "test_cookbook", "attributes", "attr1.rb"),
+      "sandbox2_file2" => File.join(datadir, "cookbooks_not_uploaded_at_feature_start", "test_cookbook", "attributes", "attr2.rb"),
+    },
     'signing_caller' =>{ 
       :user_id=>'bobo', :secret_key => "/tmp/poop.pem"
     },
@@ -96,6 +117,36 @@ Before do
         r.description "Non-existent nested role"
         r.run_list << "role[not_exist]"
         r
+      end,
+      'attribute_settings_default' => Proc.new do
+        r = Chef::Role.new
+        r.name "attribute_settings_default"
+        r.description "sets a default value"
+        r.run_list("recipe[attribute_settings]")
+        r.default_attributes({ 'attribute_priority_was' => 2 })
+        r 
+      end,
+      'attribute_settings_override' => Proc.new do
+        r = Chef::Role.new
+        r.name "attribute_settings_override"
+        r.description "sets a default value"
+        r.run_list("recipe[attribute_settings_override]")
+        r.override_attributes({ 'attribute_priority_was' => 7 })
+        r
+      end,
+      'role1_includes_role2' => Proc.new do
+        r = Chef::Role.new
+        r.name "role1_includes_role2"
+        r.description "role1 includes role2"
+        r.run_list("role[role2_included_by_role1]")
+        r
+      end,
+      'role2_included_by_role1' => Proc.new do
+        r = Chef::Role.new
+        r.name "role2_included_by_role1"
+        r.description "role2 is included by role1"
+        r.run_list("recipe[attribute_settings_override]")
+        r
       end
     },
     'node' => {
@@ -140,26 +191,6 @@ Before do
       'nothing'   => Hash.new,
       'name only' => { :name => 'test_cookbook' }
     },
-    'file' => {
-      'blank file parameter' => {
-        :file => nil
-      },
-      'string file parameter' => {
-        :file => "just some text"
-      },
-      'original cookbook tarball' => {
-        :file => File.new(File.join(datadir, "cookbook_tarballs", "original.tar.gz"), 'rb')
-      },
-      'new cookbook tarball' => {
-        :file => File.new(File.join(datadir, "cookbook_tarballs", "new.tar.gz"), 'rb')
-      },
-      'not a tarball' => {
-        :file => File.new(File.join(datadir, "cookbook_tarballs", "not_a_tarball.txt"), 'rb')
-      },
-      'empty tarball' => {
-        :file => File.new(File.join(datadir, "cookbook_tarballs", "empty_tarball.tar.gz"), 'rb')
-      }
-    }
   }
   @stash = {}
 end
@@ -205,28 +236,21 @@ Given /^an? '(.+)' named '(.+)'$/ do |stash_name, stash_key|
   @stash[key] = get_fixture(stash_name, stash_key)
 end
 
+Given "I am an administrator" do
+  make_admin
+end
+
+Given "I am a non-admin" do
+  make_non_admin
+end
+
 Given /^an? '(.+)' named '(.+)' exists$/ do |stash_name, stash_key|  
-  @stash[stash_name] = get_fixture(stash_name, stash_key) 
-    
-  if stash_name == 'registration'
-    if stash_key == "bobo"
-      r = Chef::REST.new(Chef::Config[:registration_url], Chef::Config[:validation_client_name], Chef::Config[:validation_key])
-      r.register("bobo", "#{tmpdir}/bobo.pem")
-      c = Chef::ApiClient.cdb_load("bobo")
-      c.admin(true)
-      c.cdb_save
-      @rest = Chef::REST.new(Chef::Config[:registration_url], 'bobo', "#{tmpdir}/bobo.pem")
-    elsif stash_key == "not_admin"
-      r = Chef::REST.new(Chef::Config[:registration_url], Chef::Config[:validation_client_name], Chef::Config[:validation_key])
-      r.register("not_admin", "#{tmpdir}/not_admin.pem")
-      c = Chef::ApiClient.cdb_load("not_admin")
-      c.cdb_save
-      @rest = Chef::REST.new(Chef::Config[:registration_url], 'not_admin', "#{tmpdir}/not_admin.pem")
-    end
-  else 
-    if @stash[stash_name].respond_to?(:cdb_save)
-      @stash[stash_name].cdb_save
-    elsif @stash[stash_name].respond_to?(:save)
+  call_as_admin do
+    @stash[stash_name] = get_fixture(stash_name, stash_key)
+
+    #if @stash[stash_name].respond_to?(:cdb_save)
+    #  @stash[stash_name].cdb_save
+    if @stash[stash_name].respond_to?(:save)
       @stash[stash_name].save
     else
       request_path = "/#{stash_name.pluralize}"

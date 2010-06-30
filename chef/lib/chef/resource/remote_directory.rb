@@ -21,9 +21,9 @@ require 'chef/resource/directory'
 class Chef
   class Resource
     class RemoteDirectory < Chef::Resource::Directory
-
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      
+      def initialize(name, run_context=nil)
+        super
         @resource_name = :remote_directory
         @path = name
         @source = ::File.basename(name)
@@ -67,7 +67,7 @@ class Chef
         set_or_return(
           :files_group,
           arg,
-          :regex => [ /^([a-z]|[A-Z]|[0-9]|_|-)+$/, /^\d+$/ ]
+          :regex => Chef::Config[:group_valid_regex]
         )
       end
 
@@ -83,7 +83,7 @@ class Chef
         set_or_return(
           :files_owner,
           arg,
-          :regex => [ /^([a-z]|[A-Z]|[0-9]|_|-)+$/, /^\d+$/ ]
+          :regex => Chef::Config[:user_valid_regex]
         )
       end
 

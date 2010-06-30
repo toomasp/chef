@@ -60,6 +60,16 @@ describe Chef::Node do
   end
 
   describe "attributes" do
+    it "should be loaded from the node's cookbooks" do
+      Chef::Config.cookbook_path = File.expand_path(File.join(File.dirname(__FILE__), "..", "data", "cookbooks"))
+      @node.cookbook_collection = Chef::CookbookCollection.new(Chef::CookbookLoader.new)
+      @node.load_attributes
+      @node.ldap_server.should eql("ops1prod")
+      @node.ldap_basedn.should eql("dc=hjksolutions,dc=com")
+      @node.ldap_replication_password.should eql("forsure")
+      @node.smokey.should eql("robinson")
+    end
+    
     it "should have attributes" do
       @node.attribute.should be_a_kind_of(Hash)
     end
@@ -101,26 +111,58 @@ describe Chef::Node do
       @node.sunshine.should eql("is bright")
     end
 
-    it "should allow you to set an attribute with set, without pre-declaring a hash" do
-      @node.set[:snoopy][:is_a_puppy] = true
-      @node[:snoopy][:is_a_puppy].should == true
+    describe "normal attributes" do
+      it "should allow you to set an attribute with set, without pre-declaring a hash" do
+        @node.set[:snoopy][:is_a_puppy] = true
+        @node[:snoopy][:is_a_puppy].should == true
+      end
+
+      it "should allow you to set an attribute with set_unless" do
+        @node.set_unless[:snoopy][:is_a_puppy] = false 
+        @node[:snoopy][:is_a_puppy].should == false 
+      end
+
+      it "should not allow you to set an attribute with set_unless if it already exists" do
+        @node.set[:snoopy][:is_a_puppy] = true 
+        @node.set_unless[:snoopy][:is_a_puppy] = false 
+        @node[:snoopy][:is_a_puppy].should == true 
+      end
     end
 
-    it "should allow you to set an attribute with set_unless, without pre-declaring a hash, but only if the value is not already set" do
-      @node.set[:snoopy][:is_a_puppy] = true 
-      @node.set_unless[:snoopy][:is_a_puppy] = false 
-      @node[:snoopy][:is_a_puppy].should == true 
+    describe "default attributes" do
+      it "should be set with default, without pre-declaring a hash" do
+        @node.default[:snoopy][:is_a_puppy] = true
+        @node[:snoopy][:is_a_puppy].should == true
+      end
+
+      it "should allow you to set with default_unless without pre-declaring a hash" do
+        @node.default_unless[:snoopy][:is_a_puppy] = false 
+        @node[:snoopy][:is_a_puppy].should == false 
+      end
+
+      it "should not allow you to set an attribute with default_unless if it already exists" do
+        @node.default[:snoopy][:is_a_puppy] = true 
+        @node.default_unless[:snoopy][:is_a_puppy] = false 
+        @node[:snoopy][:is_a_puppy].should == true 
+      end
     end
 
-    it "should allow you to set an attribute with default, without pre-declaring a hash, but only if the value is not already set" do
-      @node.set[:snoopy][:is_a_puppy] = true
-      @node.default[:snoopy][:is_a_puppy] = false
-      @node[:snoopy][:is_a_puppy].should == true
-    end
+    describe "override attributes" do
+      it "should be set with override, without pre-declaring a hash" do
+        @node.override[:snoopy][:is_a_puppy] = true
+        @node[:snoopy][:is_a_puppy].should == true
+      end
 
-    it "should allow you to set an attribute with default, without pre-declaring a hash" do
-      @node.default[:snoopy][:is_a_puppy] = false
-      @node[:snoopy][:is_a_puppy].should == false
+      it "should allow you to set with override_unless without pre-declaring a hash" do
+        @node.override_unless[:snoopy][:is_a_puppy] = false 
+        @node[:snoopy][:is_a_puppy].should == false 
+      end
+
+      it "should not allow you to set an attribute with override_unless if it already exists" do
+        @node.override[:snoopy][:is_a_puppy] = true 
+        @node.override_unless[:snoopy][:is_a_puppy] = false 
+        @node[:snoopy][:is_a_puppy].should == true 
+      end
     end
     
     it "should raise an ArgumentError if you ask for an attribute that doesn't exist via method_missing" do
@@ -142,32 +184,39 @@ describe Chef::Node do
   end
   
   describe "consuming json" do
-    it "should add any json attributes to the node" do
-      @node.consume_attributes "one" => "two", "three" => "four"
-      @node.one.should eql("two")
-      @node.three.should eql("four")
-    end
 
-    it "should allow you to set recipes from the json attributes" do
-      @node.consume_attributes "recipes" => [ "one", "two", "three" ]
-      @node.recipes.should == [ "one", "two", "three" ]
-    end
-
-    it "should overwrite the run list if you set recipes twice" do
-      @node.consume_attributes "recipes" => [ "one", "two" ]
-      @node.consume_attributes "recipes" => [ "three" ]
-      @node.recipes.should == [ "three" ]
-    end
-
-    it "should allow you to set a run_list from the json attributes" do
-      @node.consume_attributes "run_list" => [ "role[base]", "recipe[chef::server]" ]
+    it "consumes the run list portion of a collection of attributes and returns the remainder" do
+      attrs = {"run_list" => [ "role[base]", "recipe[chef::server]" ], "foo" => "bar"}
+      @node.consume_run_list(attrs).should == {"foo" => "bar"}
       @node.run_list.should == [ "role[base]", "recipe[chef::server]" ]
+    end
+
+    it "should overwrites the run list with the run list it consumes" do
+      @node.consume_run_list "recipes" => [ "one", "two" ]
+      @node.consume_run_list "recipes" => [ "three" ]
+      @node.recipes.should == [ "three" ]
     end
 
     it "should not add duplicate recipes from the json attributes" do
       @node.recipes << "one"
-      @node.consume_attributes "recipes" => [ "one", "two", "three" ]
+      @node.consume_run_list "recipes" => [ "one", "two", "three" ]
       @node.recipes.should  == [ "one", "two", "three" ]
+    end
+
+    it "doesn't change the run list if no run_list is specified in the json" do
+      @node.run_list << "role[database]"
+      @node.consume_run_list "foo" => "bar"
+      @node.run_list.should == ["role[database]"]
+    end
+
+    it "raises an exception if you provide both recipe and run_list attributes, since this is ambiguous" do
+      lambda { @node.consume_run_list "recipes" => "stuff", "run_list" => "other_stuff" }.should raise_error(Chef::Exceptions::AmbiguousRunlistSpecification)
+    end
+
+    it "should add json attributes to the node" do
+      @node.consume_attributes "one" => "two", "three" => "four"
+      @node.one.should eql("two")
+      @node.three.should eql("four")
     end
 
     it "should set the tags attribute to an empty array if it is not already defined" do
@@ -196,37 +245,82 @@ describe Chef::Node do
       @node.one.to_hash.should == {"two" => {"three" => "forty-two"}}
     end
     
-    it "raises an exception if you provide both recipe and run_list attributes, since this is ambiguous" do
-      lambda { @node.consume_attributes "recipes" => "stuff", "run_list" => "other_stuff" }.should raise_error(Chef::Exceptions::AmbiguousRunlistSpecification)
-    end
   end
 
-  describe "recipes" do
-    it "should have a RunList of recipes that should be applied" do
-      @node.recipes.should be_a_kind_of(Chef::RunList)
-    end
-    
-    it "should allow you to query whether or not it has a recipe applied with recipe?" do
-      @node.recipes << "sunrise"
-      @node.recipe?("sunrise").should eql(true)
-      @node.recipe?("not at home").should eql(false)
+  describe "preparing for a chef client run" do
+    before do
+      @ohai_data = {:platform => 'foobuntu', :platform_version => '23.42'}
     end
 
-    it "should allow you to query whether or not a recipe has been applied, even if it was included" do
-      @node.run_state[:seen_recipes]["snakes"] = true
-      @node.recipe?("snakes").should eql(true)
+#    @json_attribs = node.consume_run_list(json_attribs)
+#  
+#    node.automatic_attrs = ohai.data
+#
+#    platform, version = Chef::Platform.find_platform_and_version(node)
+#    Chef::Log.debug("Platform is #{platform} version #{version}")
+#    @node.automatic_attrs[:platform] = platform
+#    @node.automatic_attrs[:platform_version] = version
+#    # We clear defaults and overrides, so that any deleted attributes between runs are
+#    # still gone.
+#    @node.default_attrs = Mash.new
+#    @node.override_attrs = Mash.new
+
+    it "clears the default and override attributes" do
+      @node.default_attrs["foo"] = "bar"
+      @node.override_attrs["baz"] = "qux"
+      @node.prepare_for_run(@ohai_data, {})
+      @node.default_attrs.should be_empty
+      @node.override_attrs.should be_empty
     end
 
-    it "should return false if a recipe has not been seen" do
-      @node.recipe?("snakes").should eql(false)
+    it "sets its platform according to platform detection" do
+      @node.prepare_for_run(@ohai_data, {})
+      @node.automatic_attrs[:platform].should == 'foobuntu'
+      @node.automatic_attrs[:platform_version].should == '23.42'
     end
-    
-    it "should allow you to set recipes with arguments" do
-      @node.recipes "one", "two"
-      @node.recipe?("one").should eql(true)
-      @node.recipe?("two").should eql(true)
+
+    it "consumes the run list from provided json attributes" do
+      @node.prepare_for_run(@ohai_data, {"run_list" => ['recipe[unicorn]']})
+      @node.run_list.should == ['recipe[unicorn]']
     end
+
+    it "saves non-runlist json attrs for later" do
+      expansion = Chef::RunList::RunListExpansion.new([])
+      @node.run_list.stub!(:expand).and_return(expansion)
+      @node.prepare_for_run(@ohai_data, {"foo" => "bar"})
+      @node.expand!
+      @node.normal_attrs.should == {"foo" => "bar", "tags" => []}
+    end
+
   end
+
+  # TODO: timh, cw: 2010-5-19: Node.recipe? deprecated. See node.rb
+  # describe "recipes" do
+  #   it "should have a RunList of recipes that should be applied" do
+  #     @node.recipes.should be_a_kind_of(Chef::RunList)
+  #   end
+  #   
+  #   it "should allow you to query whether or not it has a recipe applied with recipe?" do
+  #     @node.recipes << "sunrise"
+  #     @node.recipe?("sunrise").should eql(true)
+  #     @node.recipe?("not at home").should eql(false)
+  #   end
+  # 
+  #   it "should allow you to query whether or not a recipe has been applied, even if it was included" do
+  #     @node.run_state[:seen_recipes]["snakes"] = true
+  #     @node.recipe?("snakes").should eql(true)
+  #   end
+  # 
+  #   it "should return false if a recipe has not been seen" do
+  #     @node.recipe?("snakes").should eql(false)
+  #   end
+  #   
+  #   it "should allow you to set recipes with arguments" do
+  #     @node.recipes "one", "two"
+  #     @node.recipe?("one").should eql(true)
+  #     @node.recipe?("two").should eql(true)
+  #   end
+  # end
 
   describe "roles" do
     it "should allow you to query whether or not it has a recipe applied with role?" do
@@ -308,15 +402,14 @@ describe Chef::Node do
     it "should serialize itself as a hash" do
       @node.default_attrs = { "one" => { "two" => "three", "four" => "five", "eight" => "nine" } }
       @node.override_attrs = { "one" => { "two" => "three", "four" => "six" } }
-      @node.set["one"]["two"] = "seven"
+      @node.normal_attrs = { "one" => { "two" => "seven" } }
       @node.run_list << "role[marxist]"
       @node.run_list << "role[leninist]"
       @node.run_list << "recipe[stalinist]"
       h = @node.to_hash
-      h["one"]["two"].should == "seven"
+      h["one"]["two"].should == "three"
       h["one"]["four"].should == "six"
       h["one"]["eight"].should == "nine"
-      h["recipe"].should be_include("stalinist")
       h["role"].should be_include("marxist")
       h["role"].should be_include("leninist")
       h["run_list"].should be_include("role[marxist]")
@@ -331,9 +424,9 @@ describe Chef::Node do
       json = @node.to_json()
       json.should =~ /json_class/
       json.should =~ /name/
-      json.should =~ /attributes/
-      json.should =~ /overrides/
-      json.should =~ /defaults/
+      json.should =~ /normal/
+      json.should =~ /default/
+      json.should =~ /override/
       json.should =~ /run_list/
     end
     

@@ -17,9 +17,11 @@
 #
 
 require 'chef/provider/breakpoint'
+require 'chef/provider/cookbook_file'
 require 'chef/provider/cron'
 require 'chef/provider/deploy'
 require 'chef/provider/directory'
+require 'chef/provider/env'
 require 'chef/provider/erl_call'
 require 'chef/provider/execute'
 require 'chef/provider/file'
@@ -42,6 +44,8 @@ require 'chef/provider/subversion'
 require 'chef/provider/template'
 require 'chef/provider/user'
 
+require 'chef/provider/env/windows'
+
 require 'chef/provider/package/apt'
 require 'chef/provider/package/dpkg'
 require 'chef/provider/package/easy_install'
@@ -63,18 +67,22 @@ require 'chef/provider/service/redhat'
 require 'chef/provider/service/simple'
 require 'chef/provider/service/upstart'
 require 'chef/provider/service/windows'
+require 'chef/provider/service/solaris'
 
 require 'chef/provider/user/dscl'
 require 'chef/provider/user/pw'
 require 'chef/provider/user/useradd'
+require 'chef/provider/user/windows'
 
 require 'chef/provider/group/dscl'
 require 'chef/provider/group/gpasswd'
 require 'chef/provider/group/groupadd'
 require 'chef/provider/group/pw'
 require 'chef/provider/group/usermod'
+require 'chef/provider/group/windows'
 
 require 'chef/provider/mount/mount'
+require 'chef/provider/mount/windows'
 
 require 'chef/provider/deploy/revision'
 require 'chef/provider/deploy/timestamped'

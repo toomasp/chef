@@ -14,25 +14,42 @@
 # limitations under the License.
 #
 
-%w{chef chef-server chef-server-slice chef-solr}.each do |inc_dir|
-  $: << File.join(File.dirname(__FILE__), '..', '..', inc_dir, 'lib')
-end
-
 Thread.abort_on_exception = true
 
 require 'rubygems'
 require 'spec/expectations'
+
+CHEF_PROJECT_ROOT = File.expand_path(File.dirname(__FILE__) + '/../../')
+KNIFE_CONFIG = CHEF_PROJECT_ROOT + '/features/data/config/knife.rb'
+KNIFE_CMD = File.expand_path(File.join(CHEF_PROJECT_ROOT, "chef", "bin", "knife"))
+FEATURES_DATA = File.join(CHEF_PROJECT_ROOT, "features", "data")
+INTEGRATION_COOKBOOKS = File.join(FEATURES_DATA, "cookbooks")
+
+$:.unshift(CHEF_PROJECT_ROOT + '/chef/lib')
+$:.unshift(CHEF_PROJECT_ROOT + '/chef-server-api/lib')
+$:.unshift(CHEF_PROJECT_ROOT + '/chef-server-webui/lib')
+$:.unshift(CHEF_PROJECT_ROOT + '/chef-solr/lib')
+
 require 'chef'
 require 'chef/config'
 require 'chef/client'
 require 'chef/data_bag'
 require 'chef/data_bag_item'
 require 'chef/api_client'
+require 'chef/checksum'
+require 'chef/sandbox'
 require 'chef/solr'
 require 'chef/certificate'
+require 'chef/mixin/shell_out'
 require 'tmpdir'
 require 'chef/streaming_cookbook_uploader'
 require 'webrick'
+require 'restclient'
+
+include Chef::Mixin::ShellOut
+
+Ohai::Config[:disabled_plugins] << 'darwin::system_profiler' << 'darwin::kernel' << 'darwin::ssh_host_key' << 'network_listeners'
+Ohai::Config[:disabled_plugins ]<< 'darwin::uptime' << 'darwin::filesystem' << 'dmi' << 'lanuages' << 'perl' << 'python' << 'java'
 
 ENV['LOG_LEVEL'] ||= 'error'
 
@@ -67,12 +84,20 @@ def create_databases
   Chef::Role.create_design_document
   Chef::DataBag.create_design_document
   Chef::ApiClient.create_design_document
+  Chef::CookbookVersion.create_design_document
+  Chef::Sandbox.create_design_document
+  Chef::Checksum.create_design_document
+  
   Chef::Role.sync_from_disk_to_couchdb
   Chef::Certificate.generate_signing_ca
   Chef::Certificate.gen_validation_key
   Chef::Certificate.gen_validation_key(Chef::Config[:web_ui_client_name], Chef::Config[:web_ui_key])
   system("cp #{File.join(Dir.tmpdir, "chef_integration", "validation.pem")} #{Dir.tmpdir}")
   system("cp #{File.join(Dir.tmpdir, "chef_integration", "webui.pem")} #{Dir.tmpdir}")
+
+  cmd = [KNIFE_CMD, "cookbook", "upload", "-a", "-o", INTEGRATION_COOKBOOKS, "-u", "validator", "-k", File.join(Dir.tmpdir, "validation.pem"), "-c", KNIFE_CONFIG]
+  Chef::Log.info("Uploading fixture cookbooks with #{cmd.join(' ')}")
+  shell_out!(*cmd, :timeout => 120)
 end
 
 def prepare_replicas
@@ -107,12 +132,29 @@ Chef::Log.info("Ready to run tests")
 ###
 module ChefWorld
 
-  attr_accessor :recipe, :cookbook, :response, :inflated_response, :log_level,
+  attr_accessor :recipe, :cookbook, :api_response, :inflated_response, :log_level,
                 :chef_args, :config_file, :stdout, :stderr, :status, :exception,
-                :gemserver_thread
+                :gemserver_thread, :sandbox_url
+
+  def self.ohai
+    # ohai takes a while, so only ever run it once.
+    @ohai ||= begin
+      o = Ohai::System.new
+      o.all_plugins
+      o
+    end
+  end
+
+  def ohai
+    ChefWorld.ohai
+  end
 
   def client
-    @client ||= Chef::Client.new
+    @client ||= begin
+      c = Chef::Client.new
+      c.ohai = ohai
+      c
+    end
   end
 
   def rest
@@ -129,6 +171,10 @@ module ChefWorld
   
   def datadir
     @datadir ||= File.join(File.dirname(__FILE__), "..", "data")
+  end
+
+  def configdir
+    @configdir ||= File.join(File.dirname(__FILE__), "..", "data", "config")
   end
 
   def cleanup_files
@@ -151,6 +197,39 @@ module ChefWorld
       :Logger       => Logger.new(StringIO.new),
       :AccessLog    => [ StringIO.new, WEBrick::AccessLog::COMMON_LOG_FORMAT ]
     )
+  end
+  
+  def make_admin
+    admin_client
+    @rest = Chef::REST.new(Chef::Config[:registration_url], 'bobo', "#{tmpdir}/bobo.pem")
+    #Chef::Config[:client_key] = "#{tmpdir}/bobo.pem"
+    #Chef::Config[:node_name] = "bobo"
+  end
+  
+  def admin_rest
+    admin_client
+    @admin_rest ||= Chef::REST.new(Chef::Config[:registration_url], 'bobo', "#{tmpdir}/bobo.pem")
+  end
+  
+  def admin_client
+    unless @admin_client
+      r = Chef::REST.new(Chef::Config[:registration_url], Chef::Config[:validation_client_name], Chef::Config[:validation_key])
+      r.register("bobo", "#{tmpdir}/bobo.pem")
+      c = Chef::ApiClient.cdb_load("bobo")
+      c.admin(true)
+      c.cdb_save
+      @admin_client = c
+    end
+  end
+  
+  def make_non_admin
+    r = Chef::REST.new(Chef::Config[:registration_url], Chef::Config[:validation_client_name], Chef::Config[:validation_key])
+    r.register("not_admin", "#{tmpdir}/not_admin.pem")
+    c = Chef::ApiClient.cdb_load("not_admin")
+    c.cdb_save
+    @rest = Chef::REST.new(Chef::Config[:registration_url], 'not_admin', "#{tmpdir}/not_admin.pem")
+    #Chef::Config[:client_key] = "#{tmpdir}/not_admin.pem"
+    #Chef::Config[:node_name] = "not_admin"
   end
   
 end
@@ -191,4 +270,3 @@ After do
   system("rm -rf #{data_tmp}/*")
   system("rm -rf #{tmpdir}")
 end
-

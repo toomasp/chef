@@ -1,44 +1,60 @@
- 
-require 'rubygems'
-require 'rake/rdoctask'
+#
+# Author:: Daniel Deleo (<dan@opscode.com>)
+# Copyright:: Copyright (c) 2010 Opscode, Inc.
+# License:: Apache License, Version 2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
-require 'merb-core'
-require 'merb-core/tasks/merb'
-require 'spec'
-require 'spec/rake/spectask'
+require File.dirname(__FILE__) + '/lib/chef-server/version'
+require 'rake/gempackagetask'
 
-# Load chef and chef-server slice from source rather than gem, if present
-[ 'chef', 'chef-server-slice' ].each do |lib|
-  library = File.join(File.dirname(__FILE__), "..", lib, "lib", "#{lib}.rb")
-  require library if File.exists?(library)
-end
-
-require 'chef' unless defined?(Chef)
-
-include FileUtils
-
-GEM = "chef-server"
-CHEF_SERVER_VERSION = "0.8.16"
-AUTHOR = "Opscode"
-EMAIL = "chef@opscode.com"
+GEM_NAME = "chef-server"
+AUTHOR   = "Opscode"
+EMAIL    = "chef@opscode.com"
 HOMEPAGE = "http://wiki.opscode.com/display/chef"
-SUMMARY = "A systems integration framework, built to bring the benefits of configuration management to your entire infrastructure."
+SUMMARY  = "A meta-gem to install all server components of the Chef configuration management system"
 
-tasks_path = File.join(File.dirname(__FILE__), "lib", "tasks")
-rake_files = Dir["#{tasks_path}/*.rake"]
-rake_files.each{|rake_file| load rake_file }
+spec = Gem::Specification.new do |s|
+  s.name = GEM_NAME
+  s.version = ChefServer::VERSION
+  s.platform = Gem::Platform::RUBY
+  s.has_rdoc = true
+  s.extra_rdoc_files = ["README.rdoc", "LICENSE" ]
+  s.summary = SUMMARY
+  s.description = s.summary
+  s.author = AUTHOR
+  s.email = EMAIL
+  s.homepage = HOMEPAGE
 
-desc "Start runner environment"
-task :merb_env do
-  Merb.start_environment(:environment => init_env, :adapter => 'runner')
+  s.add_dependency "chef-server-api",   "= #{ChefServer::VERSION}"
+  s.add_dependency "chef-server-webui", "= #{ChefServer::VERSION}"
+  s.add_dependency "chef-solr",         "= #{ChefServer::VERSION}"
+
+  s.files = %w(LICENSE README.rdoc Rakefile lib/chef-server.rb lib/chef-server/version.rb)
+  s
 end
 
-require 'spec/rake/spectask'
-require 'merb-core/test/tasks/spectasks'
-desc 'Default: run spec examples'
-task :default => 'spec'
+desc "Install the gem"
+task :install => :package do
+  sh %{gem install pkg/#{GEM_NAME}-#{ChefServer::VERSION} --no-rdoc --no-ri}
+end
 
-##############################################################################
-# ADD YOUR CUSTOM TASKS IN /lib/tasks
-# NAME YOUR RAKE FILES file_name.rake
-##############################################################################
+desc "Uninstall the gem"
+task :uninstall do
+  sh %{gem uninstall #{GEM_NAME} -x -v #{ChefServer::VERSION} }
+end
+
+Rake::GemPackageTask.new(spec) do |pkg|
+  pkg.gem_spec = spec
+end

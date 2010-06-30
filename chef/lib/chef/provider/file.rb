@@ -20,7 +20,6 @@ require 'chef/config'
 require 'chef/log'
 require 'chef/resource/file'
 require 'chef/mixin/checksum'
-require 'chef/mixin/generate_url'
 require 'chef/provider'
 require 'etc'
 require 'fileutils'
@@ -29,7 +28,6 @@ class Chef
   class Provider
     class File < Chef::Provider
       include Chef::Mixin::Checksum
-      include Chef::Mixin::GenerateURL
 
       def negative_complement(big)
         if big > 1073741823 # Fixnum max
@@ -53,20 +51,20 @@ class Chef
           @current_resource.owner(cstats.uid)
           @current_resource.group(cstats.gid)
           @current_resource.mode(octal_mode(cstats.mode))
-          @current_resource.checksum(checksum(@current_resource.path))
         end
         @current_resource
       end
 
       # Compare the content of a file.  Returns true if they are the same, false if they are not.
       def compare_content
-        @current_resource.checksum == new_resource_content_checksum
+        checksum(@current_resource.path) == new_resource_content_checksum
       end
 
       # Set the content of the file, assuming it is not set correctly already.
       def set_content
         unless compare_content
           Chef::Log.info("Setting content for #{@new_resource}")
+          backup @new_resource.path if ::File.exists?(@new_resource.path)
           ::File.open(@new_resource.path, "w") {|f| f.write @new_resource.content }
           @new_resource.updated = true
         end
@@ -181,16 +179,18 @@ class Chef
           time = Time.now
           savetime = time.strftime("%Y%m%d%H%M%S")
           backup_filename = "#{@new_resource.path}.chef-#{savetime}"
-          prefix = Chef::Config[:file_backup_path] || ""
-          if Chef::Config[:file_backup_path]
-            FileUtils.mkdir_p(::File.dirname(Chef::Config[:file_backup_path] + backup_filename))
-          end
-          Chef::Log.info("Backing up #{@new_resource} to #{prefix + backup_filename}")
-          FileUtils.cp(file, prefix + backup_filename, :preserve => true)
+          # if :file_backup_path is nil, we fallback to the old behavior of
+          # keeping the backup in the same directory. We also need to to_s it
+          # so we don't get a type error around implicit to_str conversions.
+          prefix = Chef::Config[:file_backup_path].to_s
+          backup_path = ::File.join(prefix, backup_filename)
+          FileUtils.mkdir_p(::File.dirname(backup_path)) if Chef::Config[:file_backup_path]
+          Chef::Log.info("Backing up #{@new_resource} to #{backup_path}")
+          FileUtils.cp(file, backup_path, :preserve => true)
 
           # Clean up after the number of backups
           slice_number = @new_resource.backup
-          backup_files = Dir[prefix + "#{@new_resource.path}.chef-*"].sort { |a,b| b <=> a }
+          backup_files = Dir[::File.join(prefix, ".#{@new_resource.path}.chef-*")].sort { |a,b| b <=> a }
           if backup_files.length >= @new_resource.backup
             remainder = backup_files.slice(slice_number..-1)
             remainder.each do |backup_to_delete|
@@ -199,11 +199,6 @@ class Chef
             end
           end
         end
-      end
-
-      def generate_url(url, type, args=nil)
-        cookbook_name = (@new_resource.respond_to?(:cookbook) && @new_resource.cookbook) ? @new_resource.cookbook : @new_resource.cookbook_name
-        generate_cookbook_url(url, cookbook_name, type, @node, args)
       end
 
       private

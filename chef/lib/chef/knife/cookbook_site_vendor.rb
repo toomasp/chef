@@ -31,8 +31,20 @@ class Chef
        :boolean => true,
        :description => "Grab dependencies automatically"
 
+      option :cookbook_path,
+        :short => "-o PATH:PATH",
+        :long => "--cookbook-path PATH:PATH",
+        :description => "A colon-separated path to look for cookbooks in",
+        :proc => lambda { |o| o.split(":") }
+
       def run
-        vendor_path = File.join(Chef::Config[:cookbook_path].first)
+        if config[:cookbook_path]
+          Chef::Config[:cookbook_path] = config[:cookbook_path]
+        else
+          config[:cookbook_path] = Chef::Config[:cookbook_path]
+        end
+
+        vendor_path = File.expand_path(File.join(config[:cookbook_path].first))
         cookbook_path = File.join(vendor_path, name_args[0])
         upstream_file = File.join(vendor_path, "#{name_args[0]}.tar.gz")
         branch_name = "chef-vendor-#{name_args[0]}"

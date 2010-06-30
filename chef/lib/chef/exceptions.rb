@@ -19,6 +19,7 @@ class Chef
   class Exceptions
     class Application < RuntimeError; end
     class Cron < RuntimeError; end
+    class Env < RuntimeError; end
     class Exec < RuntimeError; end
     class FileNotFound < RuntimeError; end  
     class Package < RuntimeError; end
@@ -28,6 +29,7 @@ class Chef
     class Override < RuntimeError; end
     class UnsupportedAction < RuntimeError; end
     class MissingLibrary < RuntimeError; end
+    class MissingRole < RuntimeError; end
     class User < RuntimeError; end
     class Group < RuntimeError; end
     class Link < RuntimeError; end
@@ -42,5 +44,14 @@ class Chef
     class RedirectLimitExceeded < RuntimeError; end
     class AmbiguousRunlistSpecification < ArgumentError; end
     class CookbookNotFound < RuntimeError; end
+    class AttributeNotFound < RuntimeError; end
+    class InvalidCommandOption < RuntimeError; end
+    class CommandTimeout < RuntimeError; end
+    class ShellCommandFailed < RuntimeError; end
+    class RequestedUIDUnavailable < RuntimeError; end
+    class InvalidHomeDirectory < ArgumentError; end
+    class DsclCommandFailed < RuntimeError; end
+    class UserIDNotFound < ArgumentError; end
+    class GroupIDNotFound < ArgumentError; end
   end
 end

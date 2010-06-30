@@ -18,17 +18,16 @@
 
 require 'chef/provider/mount'
 require 'chef/log'
-require 'chef/mixin/command'
+require 'chef/mixin/shell_out'
 
 class Chef
   class Provider
     class Mount
       class Mount < Chef::Provider::Mount
+        include Chef::Mixin::ShellOut
 
-        include Chef::Mixin::Command
-
-        def initialize(node, new_resource, collection=nil, definitions=nil, cookbook_loader=nil)
-          super(node, new_resource, collection, definitions, cookbook_loader)
+        def initialize(new_resource, run_context)
+          super
           @real_device = nil
         end
         attr_accessor :real_device
@@ -40,7 +39,7 @@ class Chef
           Chef::Log.debug("Checking for mount point #{@current_resource.mount_point}")
 
           # only check for existence of non-remote devices
-          if(@new_resource.device !~ /:/ && @new_resource.device !~ /\/\// && !::File.exists?(@new_resource.device) )
+          if(@new_resource.device !~ /:/ && @new_resource.device !~ /\/\// && !::File.exists?(device_real) )
             raise Chef::Exceptions::Mount, "Device #{@new_resource.device} does not exist"
           elsif( !::File.exists?(@new_resource.mount_point) )
             raise Chef::Exceptions::Mount, "Mount point #{@new_resource.mount_point} does not exist"
@@ -48,16 +47,14 @@ class Chef
 
           # Check to see if the volume is mounted. Last volume entry wins.
           mounted = false
-          popen4("mount") do |pid, stdin, stdout, stderr|
-            stdout.each do |line|
-              case line
-              when /^#{device_mount_regex}\s+on\s+#{@new_resource.mount_point}/
-                mounted = true
-                Chef::Log.debug("Special device #{device_logstring} mounted as #{@new_resource.mount_point}")
-              when /^([\/\w])+\son\s#{@new_resource.mount_point}\s+/
-                mounted = false
-                Chef::Log.debug("Special device #{$~[1]} mounted as #{@new_resource.mount_point}")
-              end
+          shell_out!("mount").stdout.each_line do |line|
+            case line
+            when /^#{device_mount_regex}\s+on\s+#{@new_resource.mount_point}/
+              mounted = true
+              Chef::Log.debug("Special device #{device_logstring} mounted as #{@new_resource.mount_point}")
+            when /^([\/\w])+\son\s#{@new_resource.mount_point}\s+/
+              mounted = false
+              Chef::Log.debug("Special device #{$~[1]} mounted as #{@new_resource.mount_point}")
             end
           end
           @current_resource.mounted(mounted)
@@ -87,9 +84,16 @@ class Chef
           unless @current_resource.mounted
             command = "mount -t #{@new_resource.fstype}"
             command << " -o #{@new_resource.options.join(',')}" unless @new_resource.options.nil? || @new_resource.options.empty?
-            command << " #{device_real}"
+            command << case @new_resource.device_type
+            when :device
+              " #{device_real}"
+            when :label
+              " -L #{@new_resource.device}"
+            when :uuid
+              " -U #{@new_resource.device}"
+            end
             command << " #{@new_resource.mount_point}"
-            run_command(:command => command)
+            shell_out!(command)
             Chef::Log.info("Mounted #{@new_resource.mount_point}")
           else
             Chef::Log.debug("#{@new_resource.mount_point} is already mounted.")
@@ -98,8 +102,7 @@ class Chef
 
         def umount_fs
           if @current_resource.mounted
-            command = "umount #{@new_resource.mount_point}"
-            run_command(:command => command)
+            shell_out!("umount #{@new_resource.mount_point}")
             Chef::Log.info("Unmounted #{@new_resource.mount_point}")
           else
             Chef::Log.debug("#{@new_resource.mount_point} is not mounted.")
@@ -108,8 +111,7 @@ class Chef
 
         def remount_fs
           if @current_resource.mounted and @new_resource.supports[:remount]
-            command = "mount -o remount #{@new_resource.mount_point}"
-            run_command(:command => command)
+            shell_out!("mount -o remount #{@new_resource.mount_point}")
 
             @new_resource.updated = true
             Chef::Log.info("Remounted #{@new_resource.mount_point}")
@@ -123,14 +125,12 @@ class Chef
         end
 
         def enable_fs
+          if @current_resource.enabled && mount_options_unchanged?
+            Chef::Log.debug("#{@new_resource.mount_point} is already enabled.")
+            return nil
+          end
+          
           if @current_resource.enabled
-            if @current_resource.fstype == @new_resource.fstype and
-                @current_resource.options == @new_resource.options and
-                @current_resource.dump == @new_resource.dump and
-                @current_resource.pass == @new_resource.pass
-              Chef::Log.debug("#{@new_resource.mount_point} is already enabled.")
-              return
-            end
             # The current options don't match what we have, so
             # disable, then enable.
             disable_fs
@@ -181,11 +181,10 @@ class Chef
             if @new_resource.device_type == :device
               @real_device = @new_resource.device
             else
+              @real_device = ""
               status = popen4("/sbin/findfs #{device_fstab}") do |pid, stdin, stdout, stderr|
-                @real_device = stdout.first.chomp
-              end
-              unless status.exitstatus == 0
-                @real_device = "/dev/null"
+                device_line = stdout.first # stdout.first consumes
+                @real_device = device_line.chomp unless device_line.nil?
               end
             end
           end
@@ -214,6 +213,14 @@ class Chef
             device_fstab
           end
         end
+        
+        def mount_options_unchanged?
+          @current_resource.fstype == @new_resource.fstype and
+          @current_resource.options == @new_resource.options and
+          @current_resource.dump == @new_resource.dump and
+          @current_resource.pass == @new_resource.pass
+        end
+        
       end
     end
   end

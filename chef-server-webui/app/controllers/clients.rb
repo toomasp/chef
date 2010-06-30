@@ -18,21 +18,21 @@
 
 require 'chef/api_client'
 
-class ChefServerWebui::Clients < ChefServerWebui::Application
+class Clients < Application
   provides :json
   provides :html
   before :login_required
   
   # GET /clients
   def index
-     @clients_list =  begin
-                        Chef::ApiClient.list()
-                      rescue => e
-                        Chef::Log.error("#{e}\n#{e.backtrace.join("\n")}")
-                        @_message = {:error => "Could not list clients"}
-                        {}
-                      end 
-     render
+    begin
+      @clients_list = Chef::ApiClient.list().keys.sort
+    rescue => e
+      Chef::Log.error("#{e}\n#{e.backtrace.join("\n")}")
+      @_message = {:error => "Could not list clients"}
+      @clients_list = []
+    end
+    render
   end
 
   # GET /clients/:id
@@ -107,7 +107,7 @@ class ChefServerWebui::Clients < ChefServerWebui::Application
     begin
       @client = Chef::ApiClient.load(params[:id])
       @client.destroy
-      redirect(absolute_slice_url(:clients), {:message => { :notice => "Client #{params[:id]} deleted successfully" }, :permanent => true})
+      redirect(absolute_url(:clients), {:message => { :notice => "Client #{params[:id]} deleted successfully" }, :permanent => true})
     rescue => e
       Chef::Log.error("#{e}\n#{e.backtrace.join("\n")}")
       @_message = {:error => "Could not delete client #{params[:id]}" }

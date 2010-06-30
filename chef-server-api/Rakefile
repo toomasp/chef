@@ -1,11 +1,16 @@
+require File.dirname(__FILE__) + '/lib/chef-server-api/version'
+
 require 'rubygems'
 require 'rake/gempackagetask'
 
-require 'merb-core'
-require 'merb-core/tasks/merb'
+begin
+  require 'merb-core'
+  require 'merb-core/tasks/merb'
+rescue LoadError
+  STDERR.puts "merb is not installed, merb rake tasks will not be available."
+end
 
 GEM_NAME = "chef-server-api"
-CHEF_SERVER_VERSION="0.8.16"
 AUTHOR = "Opscode"
 EMAIL = "chef@opscode.com"
 HOMEPAGE = "http://wiki.opscode.com/display/chef"
@@ -13,7 +18,7 @@ SUMMARY = "A systems integration framework, built to bring the benefits of confi
 
 spec = Gem::Specification.new do |s|
   s.name = GEM_NAME
-  s.version = CHEF_SERVER_VERSION
+  s.version = ChefServerApi::VERSION
   s.platform = Gem::Platform::RUBY
   s.has_rdoc = true
   s.extra_rdoc_files = ["README.rdoc", "LICENSE" ]
@@ -23,16 +28,20 @@ spec = Gem::Specification.new do |s|
   s.email = EMAIL
   s.homepage = HOMEPAGE
 
-  s.add_dependency "merb-core", "~> 1.0.0"
-  s.add_dependency "merb-slices", "~> 1.0.0"
-  s.add_dependency "merb-assets", "~> 1.0.0"
-  s.add_dependency "merb-helpers", "~> 1.0.0"
+  s.add_dependency "merb-core", "~> 1.1.0"
+  s.add_dependency "merb-slices", "~> 1.1.0"
+  s.add_dependency "merb-assets", "~> 1.1.0"
+  s.add_dependency "merb-helpers", "~> 1.1.0"
+  s.add_dependency "merb-param-protection", "~> 1.1.0"
 
   s.add_dependency "json", "<= 1.4.2"
 
   s.add_dependency "uuidtools", "~> 2.1.1"
 
   s.add_dependency "thin"
+  
+  s.bindir       = "bin"
+  s.executables  = %w( chef-server )
 
   s.require_path = 'lib'
   s.files = %w(LICENSE README.rdoc Rakefile) + Dir.glob("{config,lib,spec,app,public,stubs}/**/*")
@@ -44,12 +53,12 @@ end
 
 desc "Install the gem"
 task :install => :package do
-  sh %{gem install pkg/#{GEM_NAME}-#{CHEF_SERVER_VERSION} --no-rdoc --no-ri}
+  sh %{gem install pkg/#{GEM_NAME}-#{ChefServerApi::VERSION} --no-rdoc --no-ri}
 end
 
 desc "Uninstall the gem"
 task :uninstall do
-  sh %{gem uninstall #{GEM_NAME} -x -v #{CHEF_SERVER_VERSION} }
+  sh %{gem uninstall #{GEM_NAME} -x -v #{ChefServerApi::VERSION} }
 end
 
 desc "Create a gemspec file"
@@ -58,4 +67,3 @@ task :gemspec do
     file.puts spec.to_ruby
   end
 end
-

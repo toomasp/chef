@@ -23,8 +23,7 @@
             %div.sortable.run-list
               %ul#for_node.connectedSortable
                 - @run_list.each do |entry|
-                  - type, name, fname = @run_list.parse_entry(entry)
-                  %li{ :id => h(fname), :class => type == 'role' ? 'ui-state-highlight' : 'ui-state-default' }= h name 
+                  %li{ :id => h(entry.to_s), :class => entry.type == 'role' ? 'ui-state-highlight' : 'ui-state-default' }= h entry.name 
           %td.help
             %span.description
               Drag recipes from the list of Available Recipes section on the left, and drop them
@@ -37,12 +36,12 @@
             %div.sortable
               %ul#node_available_recipes.connectedSortable
                 - @available_recipes.each do |recipe|
-                  %li{ :id => "recipe[#{recipe}]", :class => 'ui-state-default' }= h recipe 
+                  %li{ :id => "recipe[#{recipe}]",:title => recipe, :class => 'ui-state-default' }= h recipe
 
 
     %div.group.form{:style => "position:relative;"}
       %label.label Attributes 
-      = partial '../layout/jsonedit', :json =>@node.attribute.to_json
+      = partial 'layout/jsonedit', :json =>@node.normal_attrs.to_json
     %div.group.form
       %span.description A JSON hash for default attributes for nodes of this node.  These attributes will only be applied if the node does not already have a value for the attributes.
 

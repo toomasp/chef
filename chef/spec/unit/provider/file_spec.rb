@@ -22,11 +22,13 @@ require File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "spec_hel
 
 describe Chef::Provider::File do
   before(:each) do
-    @resource = Chef::Resource::File.new("seattle")
-    @resource.path(File.expand_path(File.join(CHEF_SPEC_DATA, "templates", "seattle.txt")))
     @node = Chef::Node.new
     @node.name "latte"
-    @provider = Chef::Provider::File.new(@node, @resource)
+    @run_context = Chef::RunContext.new(@node, {})
+    
+    @resource = Chef::Resource::File.new("seattle")
+    @resource.path(File.expand_path(File.join(CHEF_SPEC_DATA, "templates", "seattle.txt")))
+    @provider = Chef::Provider::File.new(@resource, @run_context)
   end
 
   it "should return a Chef::Provider::File" do
@@ -57,7 +59,7 @@ describe Chef::Provider::File do
     resource.path(File.expand_path(File.join(CHEF_SPEC_DATA, "templates", "woot.txt")))
     node = Chef::Node.new
     node.name "latte"
-    provider = Chef::Provider::File.new(node, resource)
+    provider = Chef::Provider::File.new(resource, @run_context)
     provider.load_current_resource
     provider.current_resource.should be_a_kind_of(Chef::Resource::File)
     provider.current_resource.name.should eql(resource.name)
@@ -76,7 +78,7 @@ describe Chef::Provider::File do
     @resource.path(path)
     @node = Chef::Node.new
     @node.name "latte"
-    @provider = Chef::Provider::File.new(@node, @resource)
+    @provider = Chef::Provider::File.new(@resource, @run_context)
 
     ::File.stub!(:symlink?).and_return(true)
     @provider.should_not_receive(:backup)
@@ -87,12 +89,6 @@ describe Chef::Provider::File do
     stats = File.stat(@resource.path)
     @provider.load_current_resource
     @provider.current_resource.owner.should eql(stats.uid)
-  end
-
-  it "should load an sha256 sum for an existing file" do
-    actual_checksum = Digest::SHA2.file(@resource.path).to_s
-    @provider.load_current_resource
-    @provider.current_resource.checksum.should eql(actual_checksum)
   end
 
   it "should compare the current content with the requested content" do
@@ -109,7 +105,7 @@ describe Chef::Provider::File do
     io = StringIO.new
     @provider.load_current_resource
     @provider.new_resource.content "foobar"
-    File.stub!(:open).and_return(1)
+    @provider.should_receive(:backup)
     File.should_receive(:open).with(@provider.new_resource.path, "w").and_yield(io)
     lambda { @provider.set_content }.should_not raise_error
     io.string.should == "foobar"
@@ -336,19 +332,17 @@ describe Chef::Provider::File do
     @provider.backup
   end
 
-end
+  describe "when creating a file if it's missing" do
+    before(:each) do
+      @resource.path(File.expand_path(File.join(CHEF_SPEC_DATA, "templates", "seattle.txt")))
+      @provider = Chef::Provider::File.new(@resource, @run_context)
+    end
 
-describe Chef::Provider::File, "action_create_if_missing" do
-  before(:each) do
-    @resource = Chef::Resource::File.new("seattle")
-    @resource.path(File.expand_path(File.join(CHEF_SPEC_DATA, "templates", "seattle.txt")))
-    @node = Chef::Node.new
-    @node.name "latte"
-    @provider = Chef::Provider::File.new(@node, @resource)
+    it "should call action create, since File can only touch" do
+      @provider.should_receive(:action_create).and_return(true)
+      @provider.action_create_if_missing
+    end
   end
 
-  it "should call action create, since File can only touch" do
-    @provider.should_receive(:action_create).and_return(true)
-    @provider.action_create_if_missing
-  end
 end
+

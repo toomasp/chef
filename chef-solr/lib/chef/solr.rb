@@ -34,8 +34,6 @@ require 'uri'
 class Chef
   class Solr
 
-    VERSION = "0.8.16"
-
     include Chef::Mixin::XMLEscape
 
     attr_accessor :solr_url, :http
@@ -58,7 +56,11 @@ class Chef
       Chef::Log.debug("Sending #{select_url} to Solr")
       req = Net::HTTP::Get.new(select_url)
       res = @http.request(req)
-      res.error! unless res.kind_of?(Net::HTTPSuccess)
+      unless res.kind_of?(Net::HTTPSuccess)
+        Chef::Log.fatal("Search Query to Solr '#{select_url}' failed")
+        res.error!
+      end
+      Chef::Log.debug("Parsing Solr result set:\n#{res.body}")
       eval(res.body)
     end
 
@@ -211,4 +213,3 @@ class Chef
 
   end
 end
-

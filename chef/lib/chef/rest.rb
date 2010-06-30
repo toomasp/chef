@@ -27,6 +27,7 @@ require 'tempfile'
 require 'chef/api_client'
 require 'chef/rest/auth_credentials'
 require 'chef/rest/rest_request'
+require 'chef/monkey_patches/string'
 
 class Chef
   class REST
@@ -339,12 +340,16 @@ class Chef
       headers                 = @default_headers.merge(headers)
       headers['Accept']       = "application/json" unless raw
       headers["Content-Type"] = 'application/json' if json_body
+      headers['Content-Length'] = json_body.bytesize.to_s if json_body
       headers.merge!(authentication_headers(method, url, json_body)) if sign_requests?
       headers
     end
 
     def stream_to_tempfile(url, response)
       tf = Tempfile.open("chef-rest")
+      if RUBY_PLATFORM =~ /mswin|mingw32|windows/
+        tf.binmode #required for binary files on Windows platforms
+      end
       Chef::Log.debug("Streaming download from #{url.to_s} to tempfile #{tf.path}")
       # Stolen from http://www.ruby-forum.com/topic/166423
       # Kudos to _why!
