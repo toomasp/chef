@@ -28,7 +28,10 @@ require 'chef/mixin/deprecation'
 
 class Chef
   class Resource
-    HIDDEN_IVARS = [:@allowed_actions, :@resource_name, :@source_line, :@run_context, :@name]
+    class Notification < Struct.new(:resource, :action)
+    end
+
+    HIDDEN_IVARS = [:@allowed_actions, :@resource_name, :@source_line, :@run_context, :@name, :@node]
 
     include Chef::Mixin::CheckHelper
     include Chef::Mixin::ParamsValidate
@@ -211,12 +214,10 @@ class Chef
     end
 
     def to_text
-      skip = 
       ivars = instance_variables.map { |ivar| ivar.to_sym } - HIDDEN_IVARS
       text = "# Declared in #{@source_line}\n"
-      text << convert_to_snake_case(self.class.name, 'Chef::Resource') + "(#{name}) do\n"
+      text << convert_to_snake_case(self.class.name, 'Chef::Resource') + "(\"#{name}\") do\n"
       ivars.each do |ivar|
-        #next if skip.include?(ivar)
         if (value = instance_variable_get(ivar)) && !(value.respond_to?(:empty?) && value.empty?)
           text << "  #{ivar.to_s.sub(/^@/,'')}(#{value.inspect})\n"
         end
@@ -242,8 +243,6 @@ class Chef
     def to_hash
       instance_vars = Hash.new
       self.instance_variables.each do |iv|
-        #iv = iv.to_s
-        #next if iv == "@run_context"
         key = iv.to_s.sub(/^@/,'').to_sym
         instance_vars[key] = self.instance_variable_get(iv) unless (key == :run_context) || (key == :node)
       end
@@ -385,7 +384,7 @@ class Chef
         begin
           self.class.provider_base.const_get(convert_to_class_name(name.to_s))
         rescue NameError => e
-          if e.to_s =~ /#{self.class.provider_base.to_s}/
+          if e.to_s =~ /#{Regexp.escape(self.class.provider_base.to_s)}/
             raise ArgumentError, "No provider found to match '#{name}'"
           else
             raise e
@@ -404,7 +403,7 @@ class Chef
         
         resource_array = [resources].flatten
         resource_array.each do |resource|
-          new_notify = OpenStruct.new(:resource => resource, :action => action)
+          new_notify = Notification.new(resource, action)
           if timing == :delayed
             notifies_delayed << new_notify
           else

@@ -199,14 +199,6 @@ describe Chef::Provider::File do
     lambda { @provider.set_group }.should_not raise_error
   end
 
-  it "should raise an exception if you are not root and try to change the group" do
-    @provider.load_current_resource
-    @provider.new_resource.stub!(:group).and_return(0)
-    if Process.uid != 0
-      lambda { @provider.set_group }.should raise_error
-    end
-  end
-
   it "should create the file if it is missing, then set the attributes on action_create" do
     @provider.load_current_resource
     @provider.new_resource.stub!(:owner).and_return(9982398)
@@ -313,6 +305,20 @@ describe Chef::Provider::File do
     FileUtils.should_receive(:mkdir_p).with("/some_prefix/tmp").once
     FileUtils.should_receive(:rm).with("/some_prefix/tmp/s-20080705111232").once.and_return(true)
     FileUtils.should_receive(:rm).with("/some_prefix/tmp/s-20080705111223").once.and_return(true)
+    FileUtils.stub!(:cp).and_return(true)
+    File.stub!(:exist?).and_return(true)
+    @provider.backup
+  end
+
+  it "should strip the drive letter from the backup resource path (for Windows platforms)" do
+    @provider.load_current_resource
+    @provider.new_resource.stub!(:path).and_return("C:/tmp/s-20080705111233")
+    @provider.new_resource.stub!(:backup).and_return(1)
+    Chef::Config.stub!(:[]).with(:file_backup_path).and_return("C:/some_prefix")
+    Dir.stub!(:[]).and_return([ "C:/some_prefix/tmp/s-20080705111233", "C:/some_prefix/tmp/s-20080705111232", "C:/some_prefix/tmp/s-20080705111223"])
+    FileUtils.should_receive(:mkdir_p).with("C:/some_prefix/tmp").once
+    FileUtils.should_receive(:rm).with("C:/some_prefix/tmp/s-20080705111232").once.and_return(true)
+    FileUtils.should_receive(:rm).with("C:/some_prefix/tmp/s-20080705111223").once.and_return(true)
     FileUtils.stub!(:cp).and_return(true)
     File.stub!(:exist?).and_return(true)
     @provider.backup

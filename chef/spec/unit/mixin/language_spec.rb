@@ -44,7 +44,7 @@ describe Chef::Mixin::Language do
   end
 
   it "returns a default value when the current platform doesn't match" do
-        @node[:platform] = "not-a-known-platform"
+    @node[:platform] = "not-a-known-platform"
     @language.value_for_platform(@platform_hash).should == "default"
   end
 
@@ -65,5 +65,77 @@ describe Chef::Mixin::Language do
     @language.value_for_platform(@platform_hash).should == "openbsd"
   end
 
+  # NOTE: this is a regression test for bug CHEF-1514
+  describe "when the value is an array" do
+    before do
+      @platform_hash = {
+        "debian" => { "4.0" => [ :restart, :reload ], "default" => [ :restart, :reload, :status ] },
+        "ubuntu" => { "default" => [ :restart, :reload, :status ] },
+        "centos" => { "default" => [ :restart, :reload, :status ] },
+        "redhat" => { "default" => [ :restart, :reload, :status ] },
+        "fedora" => { "default" => [ :restart, :reload, :status ] },
+        "default" => { "default" => [:restart, :reload ] }}
+    end
+
+    it "returns the correct default for a given platform" do
+      @node[:platform] = "debian"
+      @node[:platform_version] = '9000'
+      @language.value_for_platform(@platform_hash).should == [ :restart, :reload, :status ]
+    end
+
+    it "returns the correct platform+version specific value " do
+      @node[:platform] = "debian"
+      @node[:platform_version] = '4.0'
+      @language.value_for_platform(@platform_hash).should == [:restart, :reload]
+    end
+
+  end
+
 end
 
+describe Chef::Mixin::Language::PlatformDependentValue do
+  before do
+    platform_hash = {
+      :openbsd => {:default => 'free, functional, secure'},
+      [:redhat, :centos, :fedora, :scientific] => {:default => '"stable"'},
+      :ubuntu => {'10.04' => 'using upstart more', :default => 'using init more'},
+      :default => 'bork da bork'
+    }
+    @platform_specific_value = Chef::Mixin::Language::PlatformDependentValue.new(platform_hash)
+  end
+
+  it "returns the default value when the platform doesn't match" do
+    @platform_specific_value.value_for_node(:platform => :dos).should == 'bork da bork'
+  end
+
+  it "returns a value for a platform set as a group" do
+    @platform_specific_value.value_for_node(:platform => :centos).should == '"stable"'
+  end
+
+  it "returns a value for the platform when it was set as a symbol but fetched as a string" do
+    @platform_specific_value.value_for_node(:platform => "centos").should == '"stable"'
+  end
+
+  it "returns a value for a specific platform version" do
+    node = {:platform => 'ubuntu', :platform_version => '10.04'}
+    @platform_specific_value.value_for_node(node).should == 'using upstart more'
+  end
+
+  it "returns a platform-default value if the platform version doesn't match an explicit one" do
+    node = {:platform => 'ubuntu', :platform_version => '9.10' }
+    @platform_specific_value.value_for_node(node).should == 'using init more'
+  end
+
+  it "returns nil if there is no default and no platforms match" do
+    # this matches the behavior in the original implementation.
+    # whether or not it's correct is another matter.
+    platform_specific_value = Chef::Mixin::Language::PlatformDependentValue.new({})
+    platform_specific_value.value_for_node(:platform => 'foo').should be_nil
+  end
+
+  it "raises an argument error if the platform hash is not correctly structured" do
+    bad_hash = {:ubuntu => :foo} # should be :ubuntu => {:default => 'foo'}
+    lambda {Chef::Mixin::Language::PlatformDependentValue.new(bad_hash)}.should raise_error(ArgumentError)
+  end
+
+end

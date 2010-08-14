@@ -77,7 +77,12 @@ When 'I run the chef-client with json attributes' do
   @chef_args = "-j #{File.join(FEATURES_DATA, 'json_attribs', 'attribute_settings.json')}"
   When "I run the chef-client"
 end
-  
+
+When "I run the chef-client with json attributes '$json_file_basename'" do |json_file_basename|
+  @log_level = :debug
+  @chef_args = "-j #{File.join(FEATURES_DATA, 'json_attribs', "#{json_file_basename}.json")}"
+  When "I run the chef-client"
+end
 
 When /^I run the chef\-client with config file '(.+)'$/ do |config_file|
   @config_file = config_file
@@ -95,7 +100,6 @@ log_location     File.join(tmpdir, "silly-monkey.log")
 file_cache_path  File.join(tmpdir, "cache")
 ssl_verify_mode  :verify_none
 registration_url "http://127.0.0.1:4000"
-openid_url       "http://127.0.0.1:4000"
 template_url     "http://127.0.0.1:4000"
 remotefile_url   "http://127.0.0.1:4000"
 search_url       "http://127.0.0.1:4000"
@@ -137,6 +141,10 @@ Then /^the run should exit '(.+)'$/ do |exit_code|
     raise
   end
   print_output if ENV["LOG_LEVEL"] == "debug"
+end
+
+Then "I print the debug log" do
+  print_output
 end
 
 Then /^the run should exit from being signaled$/ do 
@@ -190,6 +198,7 @@ Then /^'(.+)' should have '(.+)'$/ do |which, to_match|
 end
 
 Then /^'(.+)' should not have '(.+)'$/ do |which, to_match|
+  to_match = Regexp.escape(to_match)
   if which == "stdout" || which == "stderr"
     self.instance_variable_get("@#{which}".to_sym).should_not noinspect_match(/#{to_match}/m)
   else

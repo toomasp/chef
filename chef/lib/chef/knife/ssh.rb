@@ -19,19 +19,25 @@
 require 'chef/knife'
 require 'chef/data_bag_item'
 
+begin
+  gem "net-ssh", ">= 2.0.23"
+rescue LoadError
+end
+
 class Chef
   class Knife
     class Ssh < Knife
 
       attr_writer :password
 
-      banner "Sub-Command: ssh QUERY COMMAND (options)"
+      banner "knife ssh QUERY COMMAND (options)"
 
       option :concurrency,
         :short => "-C NUM",
         :long => "--concurrency NUM",
         :description => "The number of concurrent connections",
-        :default => nil 
+        :default => nil,
+        :proc => lambda { |o| o.to_i }
 
       option :attribute,
         :short => "-a ATTR",
@@ -55,6 +61,11 @@ class Chef
         :short => "-P PASSWORD",
         :long => "--ssh-password PASSWORD",
         :description => "The ssh password"
+
+      option :identity_file,
+        :short => "-i IDENTITY_FILE",
+        :long => "--identity-file IDENTITY_FILE",
+        :description => "The SSH identity file used for authentication"
 
       def session
         @session ||= Net::SSH::Multi.start(:concurrent_connections => config[:concurrency])
@@ -83,11 +94,14 @@ class Chef
       def session_from_list(list)
         list.each do |item|
           Chef::Log.debug("Adding #{item}")
-         
-          if config[:password]
-            session.use config[:ssh_user] ? "#{config[:ssh_user]}@#{item}" : item, :password => config[:password]
+          item = "#{config[:ssh_user]}@#{item}" if config[:ssh_user]
+
+          if config[:identity_file]
+            session.use item, :keys => File.expand_path(config[:identity_file])
+          elsif config[:password]
+            session.use item, :password => config[:password]
           else
-            session.use config[:ssh_user] ? "#{config[:ssh_user]}@#{item}" : item
+            session.use item
           end
           @longest = item.length if item.length > @longest
         end
@@ -233,9 +247,7 @@ class Chef
       def run 
         @longest = 0
 
-        require 'net/ssh/multi'
-        require 'readline'
-        require 'highline'
+        load_late_dependencies
 
         configure_session
 
@@ -254,6 +266,34 @@ class Chef
 
         session.close
       end
+
+      def load_late_dependencies
+        require 'net/ssh/multi'
+        require 'readline'
+        require 'highline'
+
+        assert_net_ssh_version_acceptable!
+      end
+
+      # :nodoc:
+      # TODO: remove this stuff entirely and package knife ssh as a knife plugin. (Dan - 08 Jul 2010)
+      #
+      # The correct way to specify version deps is in the gemspec or other packaging.
+      # However, we don't want to have a gem dep on net-ssh, because it's a hassle
+      # when you only need the chef-client (e.g., on a managed node). So we have to
+      # check here that you have a decent version of Net::SSH.
+      #
+      # net-ssh of lower versions has a bug that causes 'knife ssh (searchterm) (commandname)" 
+      # to loop infinitely and consume all the CPU of one core.
+      def assert_net_ssh_version_acceptable!
+        netssh_version = Net::SSH::Version
+        # we want version 2.0.23 and higher:
+        unless (netssh_version::MAJOR == 2) && (netssh_version::TINY >= 23 || netssh_version::MINOR >= 1)
+          STDERR.puts "ERROR: Please install net-ssh version 2.0.23 or higher, as lower versions cause issues."
+          exit 1
+        end
+      end
+
     end
   end
 end

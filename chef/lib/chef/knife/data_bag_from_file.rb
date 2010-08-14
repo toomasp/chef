@@ -24,7 +24,8 @@ class Chef
   class Knife
     class DataBagFromFile < Knife
 
-      banner "Sub-Command: data bag from file BAG FILE (options)"
+      banner "knife data bag from file BAG FILE (options)"
+      category "data bag"
 
       def run 
         updated = load_from_file(Chef::DataBagItem, @name_args[1], @name_args[0])

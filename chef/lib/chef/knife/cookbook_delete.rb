@@ -26,7 +26,7 @@ class Chef
 
       option :purge, :short => '-p', :long => '--purge', :boolean => true, :description => 'Permanently remove files from backing data store'
 
-      banner "Sub-Command: cookbook delete COOKBOOK VERSION (options)"
+      banner "knife cookbook delete COOKBOOK VERSION (options)"
 
       def run
         confirm("Files that are common to multiple cookbooks are shared, so purging the files may disable other cookbooks. Are you sure you want to purge files instead of just deleting the cookbook") if config[:purge]
@@ -46,7 +46,7 @@ class Chef
 
       def delete_explicit_version
         delete_object(Chef::CookbookVersion, "#{@cookbook_name} version #{@version}", "cookbook") do
-          delete_request("cookbooks/#{@cookbook_name}/#{@version}", config[:purge])
+          delete_request("cookbooks/#{@cookbook_name}/#{@version}")
         end
       end
 
@@ -115,7 +115,7 @@ class Chef
       end
 
       def delete_version_without_confirmation(version)
-        object = delete_request("cookbooks/#{@cookbook_name}/#{version}", config[:purge])
+        object = delete_request("cookbooks/#{@cookbook_name}/#{version}")
         output(format_for_display(object)) if config[:print_after]
         Chef::Log.info("Deleted cookbook[#{@cookbook_name}][#{version}]")
       end
@@ -133,9 +133,9 @@ class Chef
       
       private
       
-      def delete_request(path, purge)
-        url = "cookbooks/#{@cookbook_name}/#{@version}#{purge ? "?purge=true" : ""}"
-        rest.delete_rest(url)
+      def delete_request(path)
+        path += "?purge=true" if config[:purge]
+        rest.delete_rest(path)
       end
 
     end

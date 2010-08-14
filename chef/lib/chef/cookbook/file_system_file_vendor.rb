@@ -1,4 +1,4 @@
-#
+#--
 # Author:: Christopher Walters (<cw@opscode.com>)
 # Author:: Tim Hinderliter (<tim@opscode.com>)
 # Copyright:: Copyright (c) 2010 Opscode, Inc.
@@ -19,15 +19,16 @@
 
 require 'chef/cookbook/file_vendor'
 
-# This FileVendor loads files from Chef::Config.cookbook_path. The
-# thing that's sort of janky about this FileVendor implementation is
-# that it basically takes only the cookbook's name from the manifest
-# and throws the rest away then re-builds the list of files on the
-# disk. This is due to the manifest not having the on-disk file
-# locations, since in the chef-client case, that information is
-# non-sensical.
 class Chef
   class Cookbook
+    # == Chef::Cookbook::FileSystemFileVendor
+    # This FileVendor loads files from Chef::Config.cookbook_path. The
+    # thing that's sort of janky about this FileVendor implementation is
+    # that it basically takes only the cookbook's name from the manifest
+    # and throws the rest away then re-builds the list of files on the
+    # disk. This is due to the manifest not having the on-disk file
+    # locations, since in the chef-client case, that information is
+    # non-sensical.
     class FileSystemFileVendor < FileVendor
       
       def initialize(manifest)

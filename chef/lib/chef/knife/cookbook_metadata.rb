@@ -23,7 +23,7 @@ class Chef
   class Knife
     class CookbookMetadata < Knife
 
-      banner "Sub-Command: cookbook metadata COOKBOOK (options)"
+      banner "knife cookbook metadata COOKBOOK (options)"
 
       option :cookbook_path,
         :short => "-o PATH:PATH",
@@ -55,7 +55,7 @@ class Chef
 
       def generate_metadata(cookbook)
         Chef::Log.info("Generating Metadata")
-        config[:cookbook_path].reverse.each do |path|
+        Array(config[:cookbook_path]).reverse.each do |path|
           file = File.expand_path(File.join(path, cookbook, 'metadata.rb'))
           generate_metadata_from_file(cookbook, file)
         end
