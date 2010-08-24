@@ -41,8 +41,20 @@ describe Chef::Node do
       Chef::Node.stub!(:load).and_raise(exception)
       @node.name("created-node")
     end
+    after do
+      Chef::Config[:solo]=nil
+    end
 
     it "creates a new node for find_or_create" do
+      Chef::Node.stub!(:new).and_return(@node)
+      @node.should_receive(:create).and_return(@node)
+      node = Chef::Node.find_or_create("created-node")
+      node.name.should == 'created-node'
+      node.should equal(@node)
+    end
+
+    it "creates a new node for find_or_create in solo mode" do
+      Chef::Config[:solo]=true
       Chef::Node.stub!(:new).and_return(@node)
       @node.should_receive(:create).and_return(@node)
       node = Chef::Node.find_or_create("created-node")
@@ -529,6 +541,15 @@ describe Chef::Node do
         @rest.should_receive(:get_rest).with("nodes/monkey").and_return("foo")
         Chef::Node.load("monkey").should == "foo"
       end
+
+      it "should load from json file" do
+        @node.name("monkey")
+        @node.sunshine "in"
+        new_node = Chef::Node.from_json_file("#{Chef::Config[:node_path]}/monkey.json","monkey")
+        new_node.name.should eql(@node.name)
+        new_node.run_list == []
+        new_node.sunshine.should eql(@node.sunshine)
+      end
     end
 
     describe "destroy" do
@@ -560,6 +581,29 @@ describe Chef::Node do
         @rest.should_receive(:post_rest).with("nodes", @node)
         @node.save
       end
+    end
+
+    describe "save in solo mode" do
+      before(:each) do
+        Chef::Config[:solo]=true
+        @state_path="#{Chef::Config[:node_path]}"
+      end
+
+      after(:each) do
+        Chef::Config[:solo]=nil
+      end
+
+      it "should save node state" do
+       @node.name("monkey")
+       @node.sunshine "in"
+       run_context = Chef::RunContext.new(@node, {})
+       resource = Chef::Resource::File.new("#{@state_path}/#{@node.name}.json")
+       provider = Chef::Provider::File.new(resource, run_context)
+       Chef::Provider::File.should_receive(:new).and_return(provider)
+       provider.stub!(:backup)
+       @node.save 
+      end
+
     end
   end
 
