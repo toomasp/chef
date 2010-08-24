@@ -41,9 +41,6 @@ describe Chef::Node do
       Chef::Node.stub!(:load).and_raise(exception)
       @node.name("created-node")
     end
-    after do
-      Chef::Config[:solo]=nil
-    end
 
     it "creates a new node for find_or_create" do
       Chef::Node.stub!(:new).and_return(@node)
@@ -59,6 +56,7 @@ describe Chef::Node do
       node = Chef::Node.find_or_create("created-node")
       node.name.should == 'created-node'
       node.should equal(@node)
+      Chef::Config[:solo]=nil
     end
   end
 
