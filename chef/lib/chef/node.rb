@@ -544,8 +544,7 @@ class Chef
         end
         return @json
       else
-        node = build(node_name)
-        return node.create
+        return build(node_name)
       end
     end
     

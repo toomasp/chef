@@ -56,7 +56,6 @@ describe Chef::Node do
     it "creates a new node for find_or_create in solo mode" do
       Chef::Config[:solo]=true
       Chef::Node.stub!(:new).and_return(@node)
-      @node.should_receive(:create).and_return(@node)
       node = Chef::Node.find_or_create("created-node")
       node.name.should == 'created-node'
       node.should equal(@node)
