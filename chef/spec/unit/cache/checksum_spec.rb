@@ -52,6 +52,18 @@ describe Chef::Cache::Checksum do
     Time.should_receive(:now).and_return(was+20)
     @cache.moneta[file_key].should == nil
   end
+
+  it "deletes saved checksum for file" do
+    file_key = @cache.generate_key("#{CHEF_SPEC_DATA}/checksum/random.txt")
+    @cache.moneta.delete!(file_key)
+    fstat = mock("File.stat('random.txt')", :mtime =>  Time.at(12345))
+    File.should_receive(:stat).with("#{CHEF_SPEC_DATA}/checksum/random.txt").and_return(fstat)
+    checksum = @cache.checksum_for_file("#{CHEF_SPEC_DATA}/checksum/random.txt")
+    checksum.should == "09ee9c8cc70501763563bcf9c218d71b2fbf4186bf8e1e0da07f0f42c80a3394"
+    @cache.moneta[file_key].should == {"mtime" => 12345,"checksum" => checksum}
+    @cache.delete_checksum_for_file("#{CHEF_SPEC_DATA}/checksum/random.txt")
+    @cache.moneta[file_key].should == nil
+  end
   
   it "gives nil for a cache miss" do
     @cache.moneta["chef-file-riseofthemachines"] = {"mtime" => "12345", "checksum" => "123abc"}
