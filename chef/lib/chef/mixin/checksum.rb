@@ -26,7 +26,10 @@ class Chef
       def checksum(file)
         Chef::Cache::Checksum.checksum_for_file(file)
       end
-      
+
+      def delete_checksum(file)
+        Chef::Cache::Checksum.delete_checksum_for_file(file)
+      end
     end
   end
 end

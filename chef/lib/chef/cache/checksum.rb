@@ -37,6 +37,15 @@ class Chef
         lookup_checksum(key, fstat) || generate_checksum(key, file, fstat)
       end
 
+      def self.delete_checksum_for_file(*args)
+        instance.delete_checksum_for_file(*args)
+      end
+
+      def delete_checksum_for_file(file, key=nil)
+        key ||= generate_key(file)
+        moneta.delete(key)
+      end
+
       def lookup_checksum(key, fstat)
         cached = @moneta.fetch(key)
         if cached && file_unchanged?(cached, fstat)

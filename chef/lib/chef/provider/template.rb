@@ -79,6 +79,7 @@ class Chef
         @new_resource.checksum(checksum(rendered_template.path))
         Chef::Log.debug("Current content's checksum:  #{@current_resource.checksum}")
         Chef::Log.debug("Rendered content's checksum: #{@new_resource.checksum}")
+        delete_checksum(rendered_template.path)
       end
 
       def content_matches?
