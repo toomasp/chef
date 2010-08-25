@@ -48,7 +48,7 @@ class Chef
       
       def generate_checksum(key, file, fstat)
         checksum = checksum_file(file, Digest::SHA256.new)
-        moneta.store(key, {"mtime" => fstat.mtime.to_f, "checksum" => checksum})
+        moneta.store(key, {"mtime" => fstat.mtime.to_f, "checksum" => checksum},Chef::Config[:cache_options])
         checksum
       end
       

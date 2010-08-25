@@ -23,8 +23,9 @@ require File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "spec_hel
 describe Chef::Cache::Checksum do
   
   before do
+    Chef::Config[:cache_type]="BasicFile"
+    Chef::Config[:cache_options]={:path => "#{CHEF_SPEC_DATA}/checksums/", :expires_in => 10}
     @cache = Chef::Cache::Checksum.instance
-    @cache.reset!("Memory", {})
   end
   
   it "proxies the class method checksum_for_file to the instance" do
@@ -37,6 +38,19 @@ describe Chef::Cache::Checksum do
     fstat = mock("File.stat('riseofthemachines')", :mtime => Time.at(12345))
     File.should_receive(:stat).with("riseofthemachines").and_return(fstat)
     @cache.checksum_for_file("riseofthemachines").should == "123abc"
+  end
+
+  it "returns nil for cache timeout" do
+    file_key = @cache.generate_key("#{CHEF_SPEC_DATA}/checksum/random.txt")
+    @cache.moneta.delete!(file_key)
+    was = Time.now
+    fstat = mock("File.stat('random.txt')", :mtime =>  Time.at(12345))
+    File.should_receive(:stat).with("#{CHEF_SPEC_DATA}/checksum/random.txt").and_return(fstat)
+    checksum = @cache.checksum_for_file("#{CHEF_SPEC_DATA}/checksum/random.txt")
+    checksum.should == "09ee9c8cc70501763563bcf9c218d71b2fbf4186bf8e1e0da07f0f42c80a3394"
+    @cache.moneta[file_key].should == {"mtime" => 12345,"checksum" => checksum}
+    Time.should_receive(:now).and_return(was+20)
+    @cache.moneta[file_key].should == nil
   end
   
   it "gives nil for a cache miss" do

@@ -227,7 +227,7 @@ class Chef
     # Checksum Cache
     # Uses Moneta on the back-end
     cache_type "BasicFile"
-    cache_options({ :path => "/var/chef/cache/checksums", :skip_expires => true })
+    cache_options({ :path => "/var/chef/cache/checksums", :expires_in => 86400})
 
     # Arbitrary knife configuration data
     knife Hash.new
