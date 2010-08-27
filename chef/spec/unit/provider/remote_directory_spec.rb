@@ -131,5 +131,20 @@ describe Chef::Provider::RemoteDirectory do
       end
     end
 
+    describe "when remote_dir is an empty directory" do
+      before(:each) do
+        FileUtils.mkdir_p("#{CHEF_SPEC_DATA}/cookbooks/openldap/files/default/emptydir/subdir")
+        @resource.source "emptydir"
+        @destination_dir = Dir.tmpdir + '/empty_remote_directory_test'
+        @resource.path(@destination_dir)
+      end
+
+      it "should copy the empty directory" do
+        @provider.action_create
+        ::File.directory?(@destination_dir + "/subdir").should be_true
+      end
+
+    end
+
   end
 end
