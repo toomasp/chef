@@ -85,6 +85,8 @@ class Chef
           run_status.run_context = run_context
           assert_cookbook_path_not_empty(run_context)
           converge(run_context)
+          Chef::Log.debug("Saving the current state of node #{node_name}")
+          @node.save
         else
           # Keep track of the filenames that we use in both eager cookbook
           # downloading (during sync_cookbooks) and lazy (during the run
@@ -163,19 +165,14 @@ class Chef
     # === Returns
     # node<Chef::Node>:: Returns the created node object, also stored in @node
     def build_node
-      Chef::Log.debug("Building node object for #{@node_name}")
+      Chef::Log.debug("Building node object for #{node_name}")
 
-      if Chef::Config[:solo]
-        @node = Chef::Node.build(node_name)
-      else
-        @node = Chef::Node.find_or_create(node_name)
-      end
-
+      @node = Chef::Node.find_or_create(node_name)
       @node.consume_external_attrs(ohai.data, @json_attribs)
       @node.save unless Chef::Config[:solo]
       @node.reset_defaults_and_overrides
-
       @node
+
     end
 
     # 

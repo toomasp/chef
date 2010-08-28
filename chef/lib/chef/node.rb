@@ -31,6 +31,8 @@ require 'chef/rest'
 require 'chef/run_list'
 require 'chef/node/attribute'
 require 'chef/index_queue'
+require 'chef/resource/file'
+require 'chef/provider/file'
 require 'extlib'
 require 'json'
 
@@ -359,7 +361,6 @@ class Chef
       consume_attributes(json_cli_attrs)
 
       @automatic_attrs = ohai_data
-
       platform, version = Chef::Platform.find_platform_and_version(self)
       Chef::Log.debug("Platform is #{platform} version #{version}")
       @automatic_attrs[:platform] = platform
@@ -470,7 +471,7 @@ class Chef
       end
       node.couchdb_rev = o["_rev"] if o.has_key?("_rev")
       node.couchdb_id = o["_id"] if o.has_key?("_id")
-      node.index_id = node.couchdb_id
+      node.index_id = node.couchdb_id if o.has_key?("couchdb_id")
       node
     end
 
@@ -508,13 +509,45 @@ class Chef
     end
 
     def self.find_or_create(node_name)
-      load(node_name)
-    rescue Net::HTTPServerException => e
-      raise unless e.response.code == '404'
-      node = build(node_name)
-      node.create
+      if Chef::Config[:solo]
+        state_file = "#{Chef::Config[:node_path]}/#{node_name}.json"
+        node = from_json_file(state_file,node_name)
+      else
+        begin
+          load(node_name)
+        rescue Net::HTTPServerException => e
+          raise unless e.response.code == '404'
+          node = build(node_name)
+          node.create
+        end
+      end
     end
 
+    def self.from_json_file(file_name,node_name)
+      if ::File.exists?(file_name)
+        Chef::Log.info("Loading state file: #{file_name}")
+        begin
+          json_io = open(file_name)
+        rescue Errno::ENOENT => error
+          Chef::Application.fatal!("I cannot find #{file_name}", 2)
+        rescue Errno::EACCES => error
+          Chef::Application.fatal!("Permissions are incorrect on #{file_name}. Please chmod a+r #{file_name}", 2)
+        rescue Exception => error
+          Chef::Application.fatal!("Got an unexpected error reading #{file_name}: #{error.message}", 2)
+        end
+  
+        begin
+          @json = JSON.parse(json_io.read)
+          json_io.close unless json_io.closed?
+        rescue JSON::ParserError => error
+          Chef::Application.fatal!("Could not parse the provided JSON file (#{file_name})!: " + error.message, 2)
+        end
+        return @json
+      else
+        return build(node_name)
+      end
+    end
+    
     def self.build(node_name)
       node = new
       node.name(node_name)
@@ -543,16 +576,29 @@ class Chef
 
     # Save this node via the REST API
     def save
-      # Try PUT. If the node doesn't yet exist, PUT will return 404,
-      # so then POST to create.
-      begin
-        chef_server_rest.put_rest("nodes/#{name}", self)
-      rescue Net::HTTPServerException => e
-        raise e unless e.response.code == "404"
-        chef_server_rest.post_rest("nodes", self)
+      if Chef::Config[:solo]
+        json_save
+      else
+        # Try PUT. If the node doesn't yet exist, PUT will return 404,
+        # so then POST to create.
+        begin
+          chef_server_rest.put_rest("nodes/#{name}", self)
+        rescue Net::HTTPServerException => e
+          raise e unless e.response.code == "404"
+          chef_server_rest.post_rest("nodes", self)
+        end
       end
       self
     end
+
+   def json_save(state_path="#{Chef::Config[:node_path]}/#{self.name}.json")
+    state_res = Chef::Resource::File.new(state_path)
+    state_file = Chef::Provider::File.new(state_res,@run_context)
+    state_file.new_resource.content self.to_json
+    state_file.load_current_resource
+    state_file.action_create
+    state_file.set_content
+   end
 
     # Create the node via the REST API
     def create

@@ -1,0 +1,1 @@
+{"name":"monkey","json_class":"Chef::Node","automatic":{"recipes":[],"roles":[]},"normal":{"sunshine":"in","tags":[]},"chef_type":"node","default":{},"override":{},"run_list":[]}
