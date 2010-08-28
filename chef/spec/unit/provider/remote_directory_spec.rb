@@ -144,6 +144,10 @@ describe Chef::Provider::RemoteDirectory do
         ::File.directory?(@destination_dir + "/subdir").should be_true
       end
 
+      after(:all) do
+        FileUtils.rm_rf("#{CHEF_SPEC_DATA}/cookbooks/openldap/files/default/emtptydir")
+      end
+
     end
 
     describe "when file has changed to directory after previous run" do
@@ -165,6 +169,10 @@ describe Chef::Provider::RemoteDirectory do
         @provider.action_create
         ::File.directory?("#{@destination_dir}/subdir/test1").should be_true
         ::File.exists?("#{@destination_dir}/subdir/test1/test2").should be_true
+      end
+
+      after(:all) do
+        FileUtils.rm_rf("#{CHEF_SPEC_DATA}/cookbooks/openldap/files/default/CHEF-757")
       end
 
     end
