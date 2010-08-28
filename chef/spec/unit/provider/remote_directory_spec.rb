@@ -146,5 +146,28 @@ describe Chef::Provider::RemoteDirectory do
 
     end
 
+    describe "when file has changed to directory after previous run" do
+      before(:each) do
+        @basedir = "#{CHEF_SPEC_DATA}/cookbooks/openldap/files/default/CHEF-757/subdir"
+        FileUtils.mkdir_p(@basedir)
+        @resource.source "CHEF-757"
+        @destination_dir = Dir.tmpdir + '/CHEF-757'
+        @resource.path(@destination_dir)
+      end
+
+      it "should delete the file and replace it with directory" do
+        FileUtils.cp("#{CHEF_SPEC_DATA}/cookbooks/openldap/files/default/.dotfile","#{@basedir}/test1")
+        @provider.action_create
+        ::File.exists?("#{@destination_dir}/subdir/test1").should be_true
+        FileUtils.rm_rf("#{@basedir}/test1")
+        FileUtils.mkdir_p("#{@basedir}/test1")
+        FileUtils.cp("#{CHEF_SPEC_DATA}/cookbooks/openldap/files/default/.dotfile","#{@basedir}/test1/test2")
+        @provider.action_create
+        ::File.directory?("#{@destination_dir}/subdir/test1").should be_true
+        ::File.exists?("#{@destination_dir}/subdir/test1/test2").should be_true
+      end
+
+    end
+
   end
 end
