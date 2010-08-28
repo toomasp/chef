@@ -39,6 +39,7 @@ describe Chef::Node do
       response = OpenStruct.new(:code => '404')
       exception = Net::HTTPServerException.new("404 not found", response)
       Chef::Node.stub!(:load).and_raise(exception)
+      Chef::Config[:solo]=nil
       @node.name("created-node")
     end
 
