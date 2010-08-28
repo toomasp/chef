@@ -26,6 +26,7 @@ describe Chef::Cache::Checksum do
     Chef::Config[:cache_type]="BasicFile"
     Chef::Config[:cache_options]={:path => "#{CHEF_SPEC_DATA}/checksums/", :expires_in => 10}
     @cache = Chef::Cache::Checksum.instance
+    @cache.reset!(Chef::Config[:cache_type],Chef::Config[:cache_options])
   end
   
   it "proxies the class method checksum_for_file to the instance" do
