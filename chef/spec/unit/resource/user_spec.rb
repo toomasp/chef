@@ -36,7 +36,7 @@ describe Chef::Resource::User, "initialize" do
     @resource.username.should eql("adam")
   end
   
-  %w{comment uid gid home shell password}.each do |attrib|
+  %w{comment uid gid home shell password groups}.each do |attrib|
     it "should set #{attrib} to nil" do
       @resource.send(attrib).should eql(nil)
     end
@@ -78,7 +78,7 @@ end
   end
 end
 
-%w{uid gid}.each do |attrib|
+%w{uid gid groups}.each do |attrib|
   describe Chef::Resource::User, attrib do
     before(:each) do
       @resource = Chef::Resource::User.new("adam")
