@@ -78,7 +78,7 @@ end
   end
 end
 
-%w{uid gid groups}.each do |attrib|
+%w{uid gid}.each do |attrib|
   describe Chef::Resource::User, attrib do
     before(:each) do
       @resource = Chef::Resource::User.new("adam")
@@ -97,5 +97,43 @@ end
     it "should not allow a hash" do
       lambda { @resource.send(attrib, { :woot => "i found it" }) }.should raise_error(ArgumentError)
     end
+
+    it "should not allow an array" do
+      lambda { @resource.send(attrib, [1]) }.should raise_error(ArgumentError)
+    end
   end
+end
+
+describe "Chef::Resource::User groups" do
+  before(:each) do
+    @resource = Chef::Resource::User.new("adam")
+  end
+
+  it "should default to gid" do
+    @resource.send("groups").should eql(@resource.send("gid"))
+  end
+
+  it "should allow a string" do
+    @resource.send("groups","100")
+    @resource.send("groups").should eql("100")
+  end
+
+  it "should allow an array of integers" do
+    @resource.send("groups", [100,101])
+    @resource.send("groups").should eql([100,101])
+  end
+
+  it "should allow an array of strings" do
+    @resource.send("groups", ["100","101"])
+    @resource.send("groups").should eql(["100,101"])
+  end
+
+  it "should not allow a hash" do
+    lambda { @resource.send("groups", { :woot => "i found it" }) }.should raise_error(ArgumentError)
+  end
+
+  it "should not allow an array of hashes" do
+    lambda { @resource.send("groups", [{:woot => "i found it"}]) }.should raise_error(ArgumentError)
+  end
+
 end
