@@ -29,6 +29,7 @@ class Chef
         @comment = nil
         @uid = nil
         @gid = nil
+        @groups = @gid
         @home = nil
         @shell = nil
         @password = nil
@@ -76,6 +77,14 @@ class Chef
       end
       
       alias_method :group, :gid
+
+      def groups(arg=nil)
+        set_or_return(
+          :groups,
+          arg,
+            :kind_of => [ String, Integer, Array ]
+        )
+      end
       
       def home(arg=nil)
         set_or_return(

@@ -124,16 +124,12 @@ describe "Chef::Resource::User groups" do
   end
 
   it "should allow an array of strings" do
-    @resource.send("groups", ["100","101"])
-    @resource.send("groups").should eql(["100,101"])
+    @resource.send("groups", ["100", "101"])
+    @resource.send("groups").should eql(["100", "101"])
   end
 
   it "should not allow a hash" do
     lambda { @resource.send("groups", { :woot => "i found it" }) }.should raise_error(ArgumentError)
-  end
-
-  it "should not allow an array of hashes" do
-    lambda { @resource.send("groups", [{:woot => "i found it"}]) }.should raise_error(ArgumentError)
   end
 
 end
