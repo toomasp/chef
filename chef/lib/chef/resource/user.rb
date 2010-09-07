@@ -29,7 +29,7 @@ class Chef
         @comment = nil
         @uid = nil
         @gid = nil
-        @groups = @gid
+        @groups = nil
         @home = nil
         @shell = nil
         @password = nil

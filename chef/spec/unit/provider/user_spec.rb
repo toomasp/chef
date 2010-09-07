@@ -57,17 +57,6 @@ describe Chef::Provider::User do
   describe "load_current_resource" do
     before(:each) do
       @node = Chef::Node.new
-      #@new_resource = mock("Chef::Resource::User", 
-      #  :null_object => true,
-      #  :username => "adam",
-      #  :comment => "Adam Jacob",
-      #  :uid => 1000,
-      #  :gid => 1000,
-      #  :home => "/home/adam",
-      #  :shell => "/usr/bin/zsh",
-      #  :password => nil,
-      #  :updated => nil
-      #)
       Chef::Resource::User.stub!(:new).and_return(@current_resource)
       @pw_user = EtcPwnamIsh.new
       @pw_user.uid = "adam"
@@ -100,7 +89,16 @@ describe Chef::Provider::User do
       @provider.load_current_resource
       @provider.user_exists.should eql(false)
     end
-  
+
+    it "should set groups to include all groups for user" do
+      group1=EtcGrnamIsh.new('test1','*','10',['adam'])
+      group2=EtcGrnamIsh.new('test2','*','11',['maria','adam'])
+      Etc.should_receive(:group).and_yield(group1).and_yield(group2)
+      @provider.load_current_resource
+      @provider.current_resource.groups.should eql(['test1','test2'])
+    end
+
+
     # The mapping between the Chef::Resource::User and Getpwnam struct
     user_attrib_map = {
       :uid => :uid,
@@ -133,34 +131,6 @@ describe Chef::Provider::User do
   end
 
   describe "compare_user" do
-    before(:each) do
-      # @node = Chef::Node.new
-      # @new_resource = mock("Chef::Resource::User", 
-      #   :null_object => true,
-      #   :username => "adam",
-      #   :comment => "Adam Jacob",
-      #   :uid => 1000,
-      #   :gid => 1000,
-      #   :home => "/home/adam",
-      #   :shell => "/usr/bin/zsh",
-      #   :password => nil,
-      #   :updated => nil
-      # )
-      # @current_resource = mock("Chef::Resource::User", 
-      #   :null_object => true,
-      #   :username => "adam",
-      #   :comment => "Adam Jacob",
-      #   :uid => 1000,
-      #   :gid => 1000,
-      #   :home => "/home/adam",
-      #   :shell => "/usr/bin/zsh",
-      #   :password => nil,
-      #   :updated => nil
-      # )
-      # @provider = Chef::Provider::User.new(@node, @new_resource)
-      # @provider.current_resource = @current_resource
-    end
-  
     %w{uid gid comment home shell password}.each do |attribute|
       it "should return true if #{attribute} doesn't match" do
         @new_resource.should_receive(attribute).exactly(2).times.and_return(true)
@@ -175,25 +145,6 @@ describe Chef::Provider::User do
   end
 
   describe "action_create" do
-    before(:each) do
-      # @current_resource = mock("Chef::Resource::User", 
-      #   :null_object => true,
-      #   :username => "adam",
-      #   :comment => "Adam Jacob",
-      #   :uid => 1000,
-      #   :gid => 1000,
-      #   :home => "/home/adam",
-      #   :shell => "/usr/bin/zsh",
-      #   :password => nil,
-      #   :updated => nil
-      # )
-      # @provider = Chef::Provider::User.new(@node, @new_resource)
-      # @provider.current_resource = @current_resource
-      # @provider.user_exists = false
-      # @provider.stub!(:create_user).and_return(true)
-      # @provider.stub!(:manage_user).and_return(true)
-    end
-  
     it "should call create_user if the user does not exist" do
       @provider.user_exists = false
       @provider.should_receive(:create_user).and_return(true)
@@ -239,20 +190,6 @@ describe Chef::Provider::User do
   end
 
   describe "action_manage" do
-    before(:each) do
-      # @node = Chef::Node.new
-      # @new_resource = mock("Chef::Resource::User", 
-      #   :null_object => true
-      # )
-      # @current_resource = mock("Chef::Resource::User", 
-      #   :null_object => true
-      # )
-      # @provider = Chef::Provider::User.new(@node, @new_resource)
-      # @provider.current_resource = @current_resource
-      # @provider.user_exists = true
-      # @provider.stub!(:manage_user).and_return(true)
-    end
- 
     it "should run manage_user if the user exists and has mismatched attributes" do
       @provider.should_receive(:compare_user).and_return(true)
       @provider.should_receive(:manage_user).and_return(true)
@@ -280,20 +217,6 @@ describe Chef::Provider::User do
   end
 
   describe "action_modify" do
-    before(:each) do
-      # @node = Chef::Node.new
-      # @new_resource = mock("Chef::Resource::User", 
-      #   :null_object => true
-      # )
-      # @current_resource = mock("Chef::Resource::User", 
-      #   :null_object => true
-      # )
-      # @provider = Chef::Provider::User.new(@node, @new_resource)
-      # @provider.current_resource = @current_resource
-      # @provider.user_exists = true
-      # @provider.stub!(:manage_user).and_return(true)
-    end
- 
     it "should run manage_user if the user exists and has mismatched attributes" do
       @provider.should_receive(:compare_user).and_return(true)
       @provider.should_receive(:manage_user).and_return(true)
@@ -341,21 +264,6 @@ describe Chef::Provider::User do
   end
 
   describe "action_unlock" do
-    before(:each) do
-      # @node = Chef::Node.new
-      # @new_resource = mock("Chef::Resource::User", 
-      #   :null_object => true
-      # )
-      # @current_resource = mock("Chef::Resource::User", 
-      #   :null_object => true
-      # )
-      # @provider = Chef::Provider::User.new(@node, @new_resource)
-      # @provider.current_resource = @current_resource
-      # @provider.user_exists = true
-      # @provider.stub!(:check_lock).and_return(true)
-      # @provider.stub!(:unlock_user).and_return(true)
-    end
- 
     it "should unlock the user if it exists and is locked" do
       @provider.stub!(:check_lock).and_return(true)
       @provider.should_receive(:unlock_user).and_return(true)

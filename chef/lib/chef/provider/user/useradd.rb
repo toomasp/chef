@@ -91,7 +91,8 @@ class Chef
             'gid' => "-g",
             'uid' => "-u",
             'shell' => "-s",
-            'password' => "-p"
+            'password' => "-p",
+            'groups' => "-G"
           }
           field_list.sort{ |a,b| a[0] <=> b[0] }.each do |field, option|
             field_symbol = field.to_sym

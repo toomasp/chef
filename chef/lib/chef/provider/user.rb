@@ -62,7 +62,13 @@ class Chef
           @current_resource.home(user_info.dir)
           @current_resource.shell(user_info.shell)
           @current_resource.password(user_info.passwd)
-        
+          user_groups = []
+          Etc.group{|g|
+            if g.mem.include?(@current_resource.username)
+              user_groups.push(g.name)
+            end
+          }
+          @current_resource.groups(user_groups)
           if @new_resource.password && @current_resource.password == 'x'
             begin
               require 'shadow'
